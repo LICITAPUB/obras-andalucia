@@ -31,12 +31,15 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: true
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
       - name: Descargar lote PLACSP y guardar cursor
         timeout-minutes: 60
         run: python -u scripts/actualizar.py --pages-per-run 12
+
       - name: Guardar datos y checkpoint en GitHub
         run: |
           git config user.name "github-actions[bot]"
@@ -47,16 +50,20 @@ jobs:
             git pull --rebase origin main
             git push
           fi
+
       - name: Comprobar si el ciclo está completo
         id: estado
         run: echo "complete=$(test "$(cat data/placsp_status.txt)" = complete && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
       - name: Instalar lector PDF
         if: steps.estado.outputs.complete == 'true'
         run: python -m pip install --disable-pip-version-check "pypdf[crypto]" fonttools
+
       - name: Analizar PDFs al completar el ciclo
         if: steps.estado.outputs.complete == 'true'
         timeout-minutes: 60
         run: python -u scripts/enriquecer.py --limit "${{ inputs.enrichment_limit || '20' }}" --refresh-days 30 --delay 0.3
+
       - name: Guardar análisis PDF
         if: steps.estado.outputs.complete == 'true'
         run: |
@@ -66,18 +73,18 @@ jobs:
             git pull --rebase origin main
             git push
           fi
+
       - name: Preparar publicación
-        if: steps.estado.outputs.complete == 'true'
         run: |
           mkdir -p _site
           cp index.html _site/
           cp -r data _site/
+
       - uses: actions/configure-pages@v5
-        if: steps.estado.outputs.complete == 'true'
+
       - uses: actions/upload-pages-artifact@v3
-        if: steps.estado.outputs.complete == 'true'
         with:
           path: _site
+
       - id: deploy
         uses: actions/deploy-pages@v4
-        if: steps.estado.outputs.complete == 'true'
