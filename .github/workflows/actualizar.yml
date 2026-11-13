@@ -10,6 +10,11 @@ on:
         required: false
         default: "20"
         type: string
+      chain_depth:
+        description: "Control interno de encadenamiento automático"
+        required: false
+        default: "0"
+        type: string
 
 permissions:
   contents: write
@@ -90,3 +95,35 @@ jobs:
 
       - id: deploy
         uses: actions/deploy-pages@v4
+
+      - name: Lanzar automáticamente el siguiente lote de 12 páginas
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.PLACSP_DISPATCH_TOKEN }}
+          CHAIN_DEPTH: ${{ inputs.chain_depth || '0' }}
+          ENRICHMENT_LIMIT: ${{ inputs.enrichment_limit || '20' }}
+        run: |
+          STATUS="$(cat data/placsp_status.txt 2>/dev/null || echo pending)"
+          MODE="$(python -c "import json; print(json.load(open('data/placsp_checkpoint.json', encoding='utf-8')).get('mode', ''))" 2>/dev/null || echo '')"
+
+          if [ "$STATUS" = "complete" ] || [ "$MODE" != "initial" ]; then
+            echo "La carga histórica inicial ha terminado."
+            exit 0
+          fi
+
+          if [ -z "$GH_TOKEN" ]; then
+            echo "Falta PLACSP_DISPATCH_TOKEN. No se puede encadenar."
+            exit 0
+          fi
+
+          if [ "$CHAIN_DEPTH" -ge 50 ]; then
+            echo "Límite de seguridad de 50 ejecuciones alcanzado."
+            exit 0
+          fi
+
+          NEXT_DEPTH=$((CHAIN_DEPTH + 1))
+          echo "Lanzando lote encadenado $NEXT_DEPTH de 50."
+
+          gh workflow run actualizar.yml --ref main \
+            -f chain_depth="$NEXT_DEPTH" \
+            -f enrichment_limit="$ENRICHMENT_LIMIT"
