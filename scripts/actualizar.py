@@ -99,21 +99,16 @@ def comp(kind, name, url, code=""):
     return item + [code] if code else item
 
 def locate(record, city):
-    city = re.sub(r"\s*\(.*\)\s*$", "", city or "").strip()
+    city = re.sub(r"\\s*\\(.*\\)\\s*$", "", city or "").strip()
+    # No inferir el municipio a partir del órgano contratante o del título:
+    # solo se geolocaliza una población declarada en RealizedLocation.
     coords = TW.get(nm(city))
-    if not coords:
-        haystack = " " + nm(record["org"] + " " + record["t"] + " " + city) + " "
-        coords = next((TW[k] for k in TK if " " + k + " " in haystack), None)
     approximate = 0
     if not coords:
-        base = PC[record["prov"]]
-        digest = hashlib.md5((record["k"] + record["id"]).encode()).digest()
-        coords = (base[0] + (digest[0] / 255 - .5) * .3,
-                  base[1] + (digest[1] / 255 - .5) * .4)
+        coords = PC[record["prov"]]
         approximate = 1
     record["mun"] = record["prov"] if (not city or nm(city) in NO_AND) else city
     record["la"], record["lo"], record["ap"] = round(coords[0], 4), round(coords[1], 4), approximate
-
 def money(value):
     """Convierte importes CODICE a euros con dos decimales, sin redondear a enteros."""
     try:
