@@ -138,7 +138,7 @@ class ParserAuditTests(unittest.TestCase):
             </cac:ProcurementProject>
             <cac:LocatedContractingParty>
               <cac:Party>
-                <cac:PartyName><cbc:Name>Ayuntamiento de Madrid</cbc:Name></cac:PartyName>
+                <cac:PartyName><cbc:Name>Ayuntamiento de {contracting_city}</cbc:Name></cac:PartyName>
                 <cac:PostalAddress><cbc:CityName>{contracting_city}</cbc:CityName></cac:PostalAddress>
               </cac:Party>
             </cac:LocatedContractingParty>
@@ -165,6 +165,13 @@ class ParserAuditTests(unittest.TestCase):
     def test_expediente_at_exact_threshold_is_excluded(self):
         item = actualizar.parse_entry(self.entry("1000000.00", ["600000", "500000"]))
         self.assertIsNone(item)
+
+
+    def test_missing_execution_city_does_not_infer_city_from_contracting_authority(self):
+        item = actualizar.parse_entry(self.entry("1250000", ["1250000"], execution_city="", contracting_city="Marbella"))
+        self.assertIsNotNone(item)
+        self.assertEqual(item["mun"], "Málaga")
+        self.assertEqual((item["la"], item["lo"], item["ap"]), (36.8, -4.6, 1))
 
 
 if __name__ == "__main__":
