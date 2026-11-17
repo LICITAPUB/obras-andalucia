@@ -199,6 +199,7 @@ def parse_entry(entry):
         "prov": province, "org": org, "src": source,
         "est": ESTADOS.get((contract.findtext("{*}ContractFolderStatusCode") or "").strip(), "Desconocido"),
         "imp": amount, "lotes": lots,
+        "criteria_version": 2, "location_source": "execution",
         "pl": (contract.findtext("{*}TenderingProcess/{*}TenderSubmissionDeadlinePeriod/{*}EndDate") or "").strip(),
         "u": link, "dc": documents, "up": updated,
     }
@@ -321,7 +322,7 @@ def main():
             if key not in ("D", "info", "updated", "feed_until", "initial_window_done")
         }
         meta.update({
-            "info": f"{len(records)} licitaciones de obra en Andalucía · PLACSP · valor estimado total superior a 1.000.000 € · desde {FECHA_MINIMA}",
+            "info": f"{len(records)} licitaciones de obra en Andalucía · PLACSP · criterio total/ejecución aplicado a nuevos registros · desde {FECHA_MINIMA}",
             "updated": now.strftime("%d/%m/%Y"),
             "feed_until": max((state["feeds"][name].get("latest_updated", "") for name in FEEDS), default=""),
             "initial_window_done": complete or mode == "incremental",
