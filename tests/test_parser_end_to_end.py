@@ -39,7 +39,7 @@ var NO_AND={madrid:1,barcelona:1,valencia:1,bilbao:1,zaragoza:1,murcia:1};
 var ES={PRE:"Anuncio previo",PUB:"En plazo",EV:"En evaluación",ADJ:"Adjudicada",RES:"Resuelta",ANUL:"Anulada"};
 function nm(s){return (s||"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim()}
 function srcOf(o){o=nm(o);return o.indexOf("ayuntamiento")>=0?"Ayuntamiento":(o.indexOf("junta de andalucia")>=0||o.indexOf("consejeria")>=0||o.indexOf("servicio andaluz")>=0||(o.indexOf("agencia")>=0&&o.indexOf("andaluc")>=0))?"Junta de Andalucía":"PLACSP"}
-function g(e,n){return e.getElementsByTagNameNS("*",n)}
+function g(e,n){var out=[];function walk(x){for(var k=x&&x.firstChild;k;k=k.nextSibling){if(k.nodeType===1){if(k.localName===n)out.push(k);walk(k)}}}walk(e);return out}
 function tx(e,n){var x=e&&g(e,n)[0];return x?(x.textContent||"").trim():""}
 """ + parser_functions + """
 const xml=fs.readFileSync(process.argv[1],"utf8");
