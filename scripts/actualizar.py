@@ -24,7 +24,7 @@ import unicodedata
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 
 DATA = Path(__file__).resolve().parent.parent / "data" / "obras.json"
@@ -98,8 +98,13 @@ def comp(kind, name, url, code=""):
                 [kind, name, -1, url])
     return item + [code] if code else item
 
+def normalize_city(city):
+    """Normaliza el texto del municipio igual que el parser del navegador."""
+    return re.sub(r"\s*\(.*\)\s*$", "", city or "").strip()
+
+
 def locate(record, city):
-    city = re.sub(r"\s*\(.*\)\s*$", "", city or "").strip()
+    city = normalize_city(city)
     # No inferir el municipio a partir del órgano contratante o del título:
     # solo se geolocaliza una población declarada en RealizedLocation.
     coords = TW.get(nm(city))
@@ -109,10 +114,13 @@ def locate(record, city):
         approximate = 1
     record["mun"] = record["prov"] if (not city or nm(city) in NO_AND) else city
     record["la"], record["lo"], record["ap"] = round(coords[0], 4), round(coords[1], 4), approximate
+
+
 def money(value):
-    """Convierte importes CODICE a euros con dos decimales, sin redondear a enteros."""
+    """Convierte importes CODICE a euros con redondeo decimal HALF_UP."""
     try:
-        return round(float(Decimal(str(value or "0").strip().replace(",", "."))), 2)
+        amount = Decimal(str(value or "0").strip().replace(",", "."))
+        return float(amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
     except (InvalidOperation, ValueError, TypeError):
         return 0.0
 
@@ -186,7 +194,9 @@ def parse_entry(entry):
     # individualmente por quedar por debajo del umbral.
     amount = money(budget.findtext("{*}EstimatedOverallContractAmount")) if budget is not None else 0.0
     if amount <= 0 and lots and all(lot["imp"] > 0 for lot in lots):
-        amount = round(sum(lot["imp"] for lot in lots), 2)
+        amount = float(sum((Decimal(str(lot["imp"])) for lot in lots), Decimal("0")).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        ))
     if amount <= 0 and budget is not None:
         amount = money(budget.findtext("{*}TaxExclusiveAmount") or budget.findtext("{*}TotalAmount"))
     if amount <= IMPORTE_MINIMO:
