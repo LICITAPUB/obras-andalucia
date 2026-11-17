@@ -119,7 +119,10 @@ def locate(record, city):
 def money(value):
     """Convierte importes CODICE a euros con redondeo decimal HALF_UP."""
     try:
-        amount = Decimal(str(value or "0").strip().replace(",", "."))
+        raw = str(value or "0").strip().replace(",", ".")
+        if not re.fullmatch(r"[+-]?(?:\d+\.?\d*|\.\d+)", raw):
+            return 0.0
+        amount = Decimal(raw)
         return float(amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
     except (InvalidOperation, ValueError, TypeError):
         return 0.0
