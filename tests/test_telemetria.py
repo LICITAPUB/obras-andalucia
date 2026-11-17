@@ -95,5 +95,77 @@ class TelemetryTests(unittest.TestCase):
             self.assertEqual(saved["mode"], "incremental")
 
 
+class ParserAuditTests(unittest.TestCase):
+    def entry(self, estimated, lot_amounts, execution_city="Fuengirola", contracting_city="Madrid"):
+        lots = "".join(
+            f"""
+            <cac:ProcurementProjectLot>
+              <cbc:ID>{index}</cbc:ID>
+              <cac:ProcurementProject>
+                <cbc:Name>Lote {index}</cbc:Name>
+                <cac:BudgetAmount>
+                  <cbc:TaxExclusiveAmount>{amount}</cbc:TaxExclusiveAmount>
+                </cac:BudgetAmount>
+              </cac:ProcurementProject>
+            </cac:ProcurementProjectLot>
+            """
+            for index, amount in enumerate(lot_amounts, 1)
+        )
+        return ET.fromstring(f"""
+        <entry xmlns="http://www.w3.org/2005/Atom"
+          xmlns:cac="urn:dgpe:names:draft:codice:schema:xsd:CommonAggregateComponents-2"
+          xmlns:cbc="urn:dgpe:names:draft:codice:schema:xsd:CommonBasicComponents-2"
+          xmlns:ext="urn:dgpe:names:draft:codice-place-ext:schema:xsd:CommonAggregateComponents-2">
+          <id>https://contrataciondelestado.es/KEY-1</id>
+          <updated>2026-11-17T10:00:00Z</updated>
+          <link href="https://example.test/expediente"/>
+          <ext:ContractFolderStatus>
+            <cbc:ContractFolderID>EXP-1</cbc:ContractFolderID>
+            <cbc:ContractFolderStatusCode>PUB</cbc:ContractFolderStatusCode>
+            <cac:ProcurementProject>
+              <cbc:Name>Obras de rehabilitación</cbc:Name>
+              <cbc:TypeCode>3</cbc:TypeCode>
+              <cac:BudgetAmount>
+                <cbc:EstimatedOverallContractAmount>{estimated}</cbc:EstimatedOverallContractAmount>
+                <cbc:TaxExclusiveAmount>900000.25</cbc:TaxExclusiveAmount>
+                <cbc:TotalAmount>1089000.30</cbc:TotalAmount>
+              </cac:BudgetAmount>
+              <cac:RealizedLocation>
+                <cbc:CountrySubentity>Málaga</cbc:CountrySubentity>
+                <cbc:CountrySubentityCode>ES617</cbc:CountrySubentityCode>
+                <cac:Address><cbc:CityName>{execution_city}</cbc:CityName></cac:Address>
+              </cac:RealizedLocation>
+            </cac:ProcurementProject>
+            <cac:LocatedContractingParty>
+              <cac:Party>
+                <cac:PartyName><cbc:Name>Ayuntamiento de Madrid</cbc:Name></cac:PartyName>
+                <cac:PostalAddress><cbc:CityName>{contracting_city}</cbc:CityName></cac:PostalAddress>
+              </cac:Party>
+            </cac:LocatedContractingParty>
+            {lots}
+          </ext:ContractFolderStatus>
+        </entry>
+        """)
+
+    def test_total_expediente_keeps_decimals_and_execution_location(self):
+        item = actualizar.parse_entry(self.entry("1250000.75", ["400000.25", "500000.50"]))
+        self.assertIsNotNone(item)
+        self.assertEqual(item["imp"], 1250000.75)
+        self.assertEqual(item["mun"], "Fuengirola")
+        self.assertEqual(item["prov"], "Málaga")
+        self.assertEqual(len(item["lotes"]), 2)
+        self.assertEqual([lot["id"] for lot in item["lotes"]], ["1", "2"])
+
+    def test_threshold_applies_to_total_expediente_not_each_lot(self):
+        item = actualizar.parse_entry(self.entry("0", ["600000.25", "500000.50"]))
+        self.assertIsNotNone(item)
+        self.assertEqual(item["imp"], 1100000.75)
+        self.assertEqual(len(item["lotes"]), 2)
+
+    def test_expediente_at_exact_threshold_is_excluded(self):
+        item = actualizar.parse_entry(self.entry("1000000.00", ["600000", "500000"]))
+        self.assertIsNone(item)
+
+
 if __name__ == "__main__":
     unittest.main()
