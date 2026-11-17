@@ -123,10 +123,14 @@ function estadoVisible(d){
  return e;
 }
 function fd(s){var a=(s||"").slice(0,10).split("-");return a.length===3?a[2]+"/"+a[1]+"/"+a[0]:"sin fecha"}
+var NO_AND={madrid:1,barcelona:1,valencia:1,bilbao:1,zaragoza:1,murcia:1};
+function normalizeCity(city){return (city||"").replace(/\s*\(.*\)\s*$/,"").trim()}
 function loc(r,city){
+ city=normalizeCity(city);
  var c=TW[nm(city)];
  if(c){r.la=c[0];r.lo=c[1];r.ap=0}
  else{var q=PC[r.prov];r.la=q[0];r.lo=q[1];r.ap=1}
+ r.mun=(!city||NO_AND[nm(city)])?r.prov:city;
 }
 function srcOf(o){o=nm(o);return o.indexOf("ayuntamiento")>=0?"Ayuntamiento":(o.indexOf("junta de andalucia")>=0||o.indexOf("consejeria")>=0||o.indexOf("servicio andaluz")>=0||(o.indexOf("agencia")>=0&&o.indexOf("andaluc")>=0))?"Junta de Andalucía":"PLACSP"}
 
@@ -134,8 +138,17 @@ function srcOf(o){o=nm(o);return o.indexOf("ayuntamiento")>=0?"Ayuntamiento":(o.
 function g(e,n){return e.getElementsByTagNameNS("*",n)}
 function tx(e,n){var x=e&&g(e,n)[0];return x?(x.textContent||"").trim():""}
 function money(v){
- var n=Number(String(v==null?"0":v).trim().replace(",","."));
- return Number.isFinite(n)?Math.round((n+Number.EPSILON)*100)/100:0;
+ var s=String(v==null?"0":v).trim().replace(",",".");
+ if(!/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(s))return 0;
+ var negative=s.charAt(0)==="-";
+ if(s.charAt(0)==="-"||s.charAt(0)==="+")s=s.slice(1);
+ var parts=s.split("."),whole=parts[0]||"0",fraction=parts[1]||"";
+ try{
+  var cents=BigInt(whole)*100n+BigInt((fraction+"00").slice(0,2)||"0");
+  if(fraction.charAt(2)>="5")cents+=1n;
+  var result=Number(cents)/100;
+  return negative?-result:result;
+ }catch(e){return 0}
 }
 function lotesDe(c){
  var out=[].map.call(g(c,"ProcurementProjectLot"),function(l){
@@ -170,7 +183,7 @@ function parse(xml,acc){
   var pt=g(c,"LocatedContractingParty")[0],lk=g(e,"link"),up=tx(e,"updated");
   var imp=importeExpediente(pp,lotes);
   if(imp<=1000000)continue;
-  var kk=(tx(e,"id").split("/").pop())||id;if(acc[kk]&&acc[kk].up>up)continue;
+  var kk=tx(e,"id").replace(/^.*\//,"");if(!kk||acc[kk]&&acc[kk].up>up)continue;
   var record={k:kk,id:id,t:tx(pp,"Name"),mun:city||pr,prov:pr,org:tx(pt,"Name"),src:srcOf(tx(pt,"Name")),
    est:ES[tx(c,"ContractFolderStatusCode")]||"Desconocido",imp:imp,lotes:lotes,criteria_version:2,location_source:"execution",
    pl:tx(g(c,"TenderSubmissionDeadlinePeriod")[0],"EndDate"),u:lk.length?lk[0].getAttribute("href"):"",up:up,dc:dcs(c)};
