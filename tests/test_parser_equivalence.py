@@ -29,7 +29,7 @@ class ParserEquivalenceTests(unittest.TestCase):
         html = HTML.read_text(encoding="utf-8")
         functions = "\n".join([
             js_function(html, "function nm(s)", "var NU="),
-            js_function(html, "function normalizeCity(city)", "function srcOf("),
+            js_function(html, "var NO_AND=", "function srcOf("),
             js_function(html, "function money(v)", "function lotesDe("),
             js_function(html, "function importeExpediente(pp,lotes)", "function entryKey("),
             js_function(html, "function entryKey(id)", "function parse(xml,acc)"),
@@ -76,7 +76,7 @@ process.stdout.write(JSON.stringify({cities:cities,amounts:amounts,totals:totals
         self.assertEqual(actual, expected)
 
     def test_decimal_rounding_matches_python_half_up(self):
-        values = ["1.005", "2.675", "-1.005", "12,34", "invalid", "0.004", "0.005"]
+        values = ["1.005", "2.675", "-1.005", "12,34", "invalid", "1e3", "0.004", "0.005"]
         expected = [actualizar.money(value) for value in values]
         actual = self.run_js({
             "cities": [], "amounts": values, "totals": [], "keys": [],
