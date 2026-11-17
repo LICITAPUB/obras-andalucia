@@ -166,6 +166,7 @@ function importeExpediente(pp,lotes){
   return money(lotes.reduce(function(s,l){return s+l.imp},0));
  return money(tx(b,"TaxExclusiveAmount")||tx(b,"TotalAmount"));
 }
+function entryKey(id){return String(id||"").replace(/^.*\\//,"")}
 function parse(xml,acc){
  var doc=new DOMParser().parseFromString(xml,"application/xml"),es=g(doc,"entry");
  for(var i=0;i<es.length;i++){
