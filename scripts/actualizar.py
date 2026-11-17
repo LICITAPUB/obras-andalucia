@@ -253,6 +253,20 @@ def parse_entry(entry):
     locate(record, city)
     return record
 
+def timestamp_after(candidate, baseline):
+    """Compara timestamps ISO respetando sus offsets horarios."""
+    try:
+        left = datetime.fromisoformat(candidate.replace("Z", "+00:00"))
+        right = datetime.fromisoformat(baseline.replace("Z", "+00:00"))
+        if left.tzinfo is None:
+            left = left.replace(tzinfo=timezone.utc)
+        if right.tzinfo is None:
+            right = right.replace(tzinfo=timezone.utc)
+        return left > right
+    except (TypeError, ValueError):
+        return candidate > baseline
+
+
 def apply_deleted_entry(deleted, acc):
     """Conserva el expediente y aplica su retirada solo si es posterior a su última entrada."""
     key = entry_key(deleted.get("ref", ""))
@@ -260,13 +274,13 @@ def apply_deleted_entry(deleted, acc):
     record = acc.get(key)
     if not key or not when or record is None:
         return False
-    if when <= (record.get("up") or ""):
+    if not timestamp_after(when, record.get("up") or ""):
         return False
     comment = deleted.find("{*}comment")
     reason = (comment.get("type", "") if comment is not None else "").strip().upper()
     label = {"ANULADA": "Anulada", "CERRADA": "Cerrada"}.get(reason, "Retirada del feed")
     current = record.get("tombstone") or {}
-    if when < current.get("when", ""):
+    if current.get("when") and not timestamp_after(when, current["when"]):
         return False
     record.setdefault("estado_publicado", record.get("est", "Desconocido"))
     record["est"] = label
@@ -293,7 +307,7 @@ def collect(root, acc):
             # Una entrada posterior al tombstone lo deja sin efecto; si el
             # tombstone es posterior, se conserva como estado histórico vigente.
             tombstone = previous.get("tombstone") if previous else None
-            if tombstone and tombstone.get("when", "") > record["up"]:
+            if tombstone and timestamp_after(tombstone.get("when", ""), record["up"]):
                 record["estado_publicado"] = record.get("est", "Desconocido")
                 record["tombstone"] = tombstone
                 reason = tombstone.get("tipo", "")
