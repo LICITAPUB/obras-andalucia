@@ -323,7 +323,11 @@ function renderPlacspProgress(data){
   $(prefix+"Dates").textContent="Fechas examinadas: "+date(f.oldest_updated)+" a "+date(f.newest_updated);
  };
  feed("pPer","perfiles");feed("pAgr","agregadas");
- $("placspMode").textContent=p.mode==="initial"?"Importación histórica desde "+(p.history_cutoff||"2024-01-01"): "Sincronización incremental";
+ var baseMode=p.mode==="initial"?"Importación histórica desde "+(p.history_cutoff||"2024-01-01"):"Sincronización incremental";
+ var telemetryNote=p.telemetry_scope==="desde_instrumentacion"
+  ?" · contadores desde "+date(p.telemetry_started_at)
+  :" · contadores históricos anteriores a la instrumentación no disponibles";
+ $("placspMode").textContent=baseMode+telemetryNote;
  $("placspState").textContent=p.complete?"Histórico completado":"Descarga en curso";
  $("placspState").className="placsp-state "+(p.complete?"complete":"pending");
 }
