@@ -46,7 +46,7 @@ class TombstoneTests(unittest.TestCase):
 
     def test_tombstone_comparison_respects_timezone_offsets(self):
         self.record["up"] = "2026-05-02T09:30:00+02:00"
-        node = self.deleted("2026-05-02T08:00:00+01:00", "CERRADA")
+        node = self.deleted("2026-05-02T08:45:00+01:00", "CERRADA")
         self.assertTrue(actualizar.apply_deleted_entry(node, self.acc))
         self.assertEqual(self.record["est"], "Cerrada")
 
