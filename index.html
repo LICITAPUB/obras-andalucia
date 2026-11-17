@@ -150,17 +150,19 @@ function money(v){
   return negative?-result:result;
  }catch(e){return 0}
 }
+function direct(e,n){var out=[];for(var k=e&&e.firstElementChild;k;k=k.nextElementSibling)if(k.localName===n)out.push(k);return out}
+function txDirect(e,n){var x=direct(e,n)[0];return x?(x.textContent||"").trim():""}
 function lotesDe(c){
- var out=[].map.call(g(c,"ProcurementProjectLot"),function(l){
-  var p=g(l,"ProcurementProject")[0];if(!p)return null;
-  var b=g(p,"BudgetAmount")[0],rl=g(p,"RealizedLocation")[0],nu=tx(rl,"CountrySubentityCode");
+ var out=[].map.call(direct(c,"ProcurementProjectLot"),function(l){
+  var p=direct(l,"ProcurementProject")[0];if(!p)return null;
+  var b=direct(p,"BudgetAmount")[0],rl=direct(p,"RealizedLocation")[0],nu=tx(rl,"CountrySubentityCode");
   var prov=nu.indexOf("ES61")===0?NU[nu.slice(0,5)]:PN[nm(tx(rl,"CountrySubentity"))],city=tx(rl,"CityName");
   return {id:tx(l,"ID"),t:tx(p,"Name"),imp:money(tx(b,"TaxExclusiveAmount")||tx(b,"TotalAmount")),mun:city||prov||"",prov:prov||""};
  }).filter(Boolean);
  return out;
 }
 function importeExpediente(pp,lotes){
- var b=g(pp,"BudgetAmount")[0],v=money(tx(b,"EstimatedOverallContractAmount"));
+ var b=direct(pp,"BudgetAmount")[0],v=money(tx(b,"EstimatedOverallContractAmount"));
  if(v>0)return v;
  if(lotes.length&&lotes.every(function(l){return l.imp>0}))
   return money(lotes.reduce(function(s,l){return s+l.imp},0));
@@ -170,24 +172,27 @@ function entryKey(id){return String(id||"").replace(/^.*\//,"")}
 function parse(xml,acc){
  var doc=new DOMParser().parseFromString(xml,"application/xml"),es=g(doc,"entry");
  for(var i=0;i<es.length;i++){
-  var e=es[i],c=g(e,"ContractFolderStatus")[0];if(!c)continue;
-  var pp=g(c,"ProcurementProject")[0];if(!pp)continue;
+  var e=es[i],c=direct(e,"ContractFolderStatus")[0];if(!c)continue;
+  var pp=direct(c,"ProcurementProject")[0];if(!pp)continue;
   var cp=[].map.call(g(pp,"ItemClassificationCode"),function(x){return x.textContent.trim()});
   if(!(tx(pp,"TypeCode")==="3"||cp.some(function(x){return x.indexOf("45")===0})))continue;
-  var rl=g(pp,"RealizedLocation")[0],nu=tx(rl,"CountrySubentityCode");
+  var rl=direct(pp,"RealizedLocation")[0],nu=tx(rl,"CountrySubentityCode");
   var pr=nu.indexOf("ES61")===0?NU[nu.slice(0,5)]:PN[nm(tx(rl,"CountrySubentity"))];
   var city=tx(rl,"CityName"),lotes=lotesDe(c);
   if(!pr){var lotProvs=[...new Set(lotes.map(function(l){return l.prov}).filter(Boolean))];if(lotProvs.length===1)pr=lotProvs[0]}
   if(!pr)continue;
   if(!city){var lotCities=[...new Set(lotes.filter(function(l){return l.prov===pr&&l.mun&&l.mun!==pr}).map(function(l){return l.mun}))];if(lotCities.length===1)city=lotCities[0]}
-  var id=tx(c,"ContractFolderID");if(!id)continue;
-  var pt=g(c,"LocatedContractingParty")[0],lk=g(e,"link"),up=tx(e,"updated");
+  var id=txDirect(c,"ContractFolderID");if(!id)continue;
+  var pt=direct(c,"LocatedContractingParty")[0],lk=direct(e,"link"),up=txDirect(e,"updated");
   var imp=importeExpediente(pp,lotes);
   if(imp<=1000000)continue;
-  var kk=tx(e,"id").replace(/^.*\//,"");if(!kk||acc[kk]&&acc[kk].up>up)continue;
-  var record={k:kk,id:id,t:tx(pp,"Name"),mun:city||pr,prov:pr,org:tx(pt,"Name"),src:srcOf(tx(pt,"Name")),
-   est:ES[tx(c,"ContractFolderStatusCode")]||"Desconocido",imp:imp,lotes:lotes,criteria_version:2,location_source:"execution",
-   pl:tx(g(c,"TenderSubmissionDeadlinePeriod")[0],"EndDate"),u:lk.length?lk[0].getAttribute("href"):"",up:up,dc:dcs(c)};
+  var kk=entryKey(txDirect(e,"id"));if(!kk||acc[kk]&&acc[kk].up>up)continue;
+  var partyName=g(pt,"PartyName")[0],org=tx(partyName,"Name");
+  var tp=direct(c,"TenderingProcess")[0],deadline=direct(tp,"TenderSubmissionDeadlinePeriod")[0];
+  var record={k:kk,id:id,t:txDirect(pp,"Name"),mun:city||pr,prov:pr,org:org,src:srcOf(org),
+   est:ES[txDirect(c,"ContractFolderStatusCode")]||"Desconocido",imp:imp,lotes:lotes,criteria_version:2,location_source:"execution",
+   pl:tx(deadline,"EndDate"),u:lk.length?lk[0].getAttribute("href"):"",up:up,dc:dcs(c)};
+  if(record.t.length>240)record.t=record.t.slice(0,237)+"…";
   loc(record,city);acc[kk]=record;
  }
 }
