@@ -170,6 +170,7 @@ function importeExpediente(pp,lotes){
  return money(tx(b,"TaxExclusiveAmount")||tx(b,"TotalAmount"));
 }
 function entryKey(id){return String(id||"").replace(/^.*\//,"")}
+function afterTimestamp(a,b){var x=Date.parse(a||""),y=Date.parse(b||"");return Number.isFinite(x)&&Number.isFinite(y)?x>y:String(a||"")>String(b||"")}
 function parse(xml,acc){
  var doc=new DOMParser().parseFromString(xml,"application/xml"),es=g(doc,"entry");
  for(var i=0;i<es.length;i++){
@@ -200,7 +201,7 @@ function parse(xml,acc){
   if(record.t.length>240)record.t=record.t.slice(0,237)+"…";
   loc(record,city);
   var previous=acc[kk],oldTomb=previous&&previous.tombstone;
-  if(oldTomb&&oldTomb.when>up){
+  if(oldTomb&&afterTimestamp(oldTomb.when,up)){
    record.estado_publicado=record.est;record.tombstone=oldTomb;
    record.est=oldTomb.tipo==="ANULADA"?"Anulada":oldTomb.tipo==="CERRADA"?"Cerrada":"Retirada del feed";
   }
@@ -210,10 +211,10 @@ function parse(xml,acc){
  var deleted=g(doc,"deleted-entry");
  for(var j=0;j<deleted.length;j++){
   var de=deleted[j],key=entryKey(de.getAttribute("ref")),when=de.getAttribute("when"),r=acc[key];
-  if(!r||!when||when<=(r.up||""))continue;
+  if(!r||!when||!afterTimestamp(when,r.up||""))continue;
   var comments=g(de,"comment"),reason=comments.length?(comments[0].getAttribute("type")||"").toUpperCase():"";
   var label=reason==="ANULADA"?"Anulada":reason==="CERRADA"?"Cerrada":"Retirada del feed";
-  if(r.tombstone&&r.tombstone.when>when)continue;
+  if(r.tombstone&&!afterTimestamp(when,r.tombstone.when))continue;
   if(!r.estado_publicado)r.estado_publicado=r.est||"Desconocido";
   r.est=label;r.tombstone={when:when,tipo:reason||"SIN_CLASIFICAR"};
  }
