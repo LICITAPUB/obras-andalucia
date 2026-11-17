@@ -21,6 +21,6 @@ jobs:
         with:
           node-version: "20"
       - name: Instalar parser XML para Node.js
-        run: npm install --no-save @xmldom/xmldom@0.8.10
+        run: npm install --no-save @xmldom/xmldom@0.9.8
       - name: Ejecutar pruebas Python y equivalencia JavaScript
         run: python -m unittest discover -s tests -v
