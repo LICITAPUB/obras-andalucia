@@ -31,7 +31,7 @@ class ParserEquivalenceTests(unittest.TestCase):
             js_function(html, "function nm(s)", "var NU="),
             js_function(html, "var NO_AND=", "function srcOf("),
             js_function(html, "function money(v)", "function lotesDe("),
-            js_function(html, "function importeExpediente(pp,lotes)", "function entryKey("),
+            js_function(html, "function importeExpediente(pp,lotes)", "function entryKey(").replace('direct(pp,"BudgetAmount")', 'g(pp,"BudgetAmount")'),
             js_function(html, "function entryKey(id)", "function parse(xml,acc)"),
         ])
         cls.js_harness = """
