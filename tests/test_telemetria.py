@@ -79,6 +79,8 @@ class TelemetryTests(unittest.TestCase):
             self.assertEqual(status.read_text(encoding="utf-8").strip(), "complete")
             self.assertEqual(len(data["D"]), 1)
             self.assertEqual(data["placsp_progress"]["mode"], "initial")
+            self.assertEqual(data["placsp_progress"]["telemetry_scope"], "desde_instrumentacion")
+            self.assertTrue(data["placsp_progress"]["telemetry_started_at"])
             for name in ("perfiles", "agregadas"):
                 stats = data["placsp_progress"]["feeds"][name]
                 self.assertEqual(stats["pages_processed"], 1)
