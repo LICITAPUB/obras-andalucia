@@ -99,7 +99,7 @@ def comp(kind, name, url, code=""):
     return item + [code] if code else item
 
 def locate(record, city):
-    city = re.sub(r"\\s*\\(.*\\)\\s*$", "", city or "").strip()
+    city = re.sub(r"\s*\(.*\)\s*$", "", city or "").strip()
     # No inferir el municipio a partir del órgano contratante o del título:
     # solo se geolocaliza una población declarada en RealizedLocation.
     coords = TW.get(nm(city))
