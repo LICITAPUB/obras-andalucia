@@ -129,10 +129,15 @@ def parse_lots(contract):
             money(budget.findtext("{*}TaxExclusiveAmount") or budget.findtext("{*}TotalAmount"))
             if budget is not None else 0.0
         )
+        realized = lot_project.find("{*}RealizedLocation")
+        nuts = (realized.findtext("{*}CountrySubentityCode") or "").strip() if realized is not None else ""
+        subentity = (realized.findtext("{*}CountrySubentity") or "").strip() if realized is not None else ""
+        province = NUTS.get(nuts[:5]) if nuts.startswith("ES61") else PN.get(nm(subentity))
+        city = (realized.findtext(".//{*}CityName") or "").strip() if realized is not None else ""
         lots.append({
             "id": (lot.findtext("{*}ID") or "").strip(),
             "t": (lot_project.findtext("{*}Name") or "").strip(),
-            "imp": amount,
+            "imp": amount, "mun": city or province or "", "prov": province or "",
         })
     return lots
 
@@ -153,8 +158,20 @@ def parse_entry(entry):
     subentity = (realized.findtext("{*}CountrySubentity") or "").strip() if realized is not None else ""
     city = (realized.findtext(".//{*}CityName") or "").strip() if realized is not None else ""
     province = NUTS.get(nuts[:5]) if nuts.startswith("ES61") else PN.get(nm(subentity))
+    lots = parse_lots(contract)
     if not province:
-        return None
+        lot_provinces = {lot["prov"] for lot in lots if lot.get("prov")}
+        if len(lot_provinces) == 1:
+            province = next(iter(lot_provinces))
+        else:
+            return None
+    if not city:
+        lot_cities = {
+            lot["mun"] for lot in lots
+            if lot.get("prov") == province and lot.get("mun") and lot["mun"] != province
+        }
+        if len(lot_cities) == 1:
+            city = next(iter(lot_cities))
 
     key = re.sub(r"^.*/", "", (entry.findtext("{*}id") or "").strip())
     contract_id = (contract.findtext("{*}ContractFolderID") or "").strip()
@@ -164,7 +181,6 @@ def parse_entry(entry):
     org = (party.findtext(".//{*}PartyName/{*}Name") or "").strip() if party is not None else ""
 
     budget = project.find("{*}BudgetAmount")
-    lots = parse_lots(contract)
     # Criterio económico: valor estimado TOTAL del expediente (> 1 M€).
     # Si no existe, sumar los importes de todos los lotes; no descartar lotes
     # individualmente por quedar por debajo del umbral.
