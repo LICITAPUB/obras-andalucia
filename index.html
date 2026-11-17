@@ -168,7 +168,7 @@ function parse(xml,acc){
   if(imp<=1000000)continue;
   var kk=(tx(e,"id").split("/").pop())||id;if(acc[kk]&&acc[kk].up>up)continue;
   var record={k:kk,id:id,t:tx(pp,"Name"),mun:city||pr,prov:pr,org:tx(pt,"Name"),src:srcOf(tx(pt,"Name")),
-   est:ES[tx(c,"ContractFolderStatusCode")]||"Desconocido",imp:imp,lotes:lotes,
+   est:ES[tx(c,"ContractFolderStatusCode")]||"Desconocido",imp:imp,lotes:lotes,criteria_version:2,location_source:"execution",
    pl:tx(g(c,"TenderSubmissionDeadlinePeriod")[0],"EndDate"),u:lk.length?lk[0].getAttribute("href"):"",up:up,dc:dcs(c)};
   loc(record,city);acc[kk]=record;
  }
