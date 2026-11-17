@@ -37,7 +37,7 @@ class ParserEquivalenceTests(unittest.TestCase):
         cls.js_harness = """
 var TW={fuengirola:[36.540,-4.625]};
 var PC={"Málaga":[36.8,-4.6]};
-function g(e,n){return e && e[n] ? [e[n]] : []}
+function g(e,n){return e && e[n] ? [e[n]] : []}\nfunction direct(e,n){return g(e,n)}
 function tx(e,n){return e && e[n] != null ? String(e[n]) : ""}
 """ + functions + """
 const input=JSON.parse(process.argv[1]);
