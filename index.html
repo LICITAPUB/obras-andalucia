@@ -34,7 +34,7 @@
    <label for="q">Buscar licitación</label><input type="search" id="q" placeholder="Título, municipio, CPV, clasificación…">
    <label for="prov">Provincia</label><select id="prov"><option value="">Todas las provincias</option></select>
    <label for="src">Fuente</label><select id="src"><option value="">Todas las fuentes</option><option>PLACSP</option><option>Junta de Andalucía</option><option>Ayuntamiento</option></select>
-   <label for="est">Estado</label><select id="est"><option value="">Todos los estados</option><option>En plazo</option><option>Plazo vencido</option><option>En evaluación</option><option>Adjudicada</option><option>Resuelta</option><option>Anuncio previo</option><option>Anulada</option></select>
+   <label for="est">Estado</label><select id="est"><option value="">Todos los estados</option><option>En plazo</option><option>Plazo vencido</option><option>En evaluación</option><option>Adjudicada</option><option>Resuelta</option><option>Anuncio previo</option><option>Anulada</option><option>Cerrada</option><option>Retirada del feed</option></select>
    <label for="clas">Clasificación</label><select id="clas"><option value="">Todas las clasificaciones</option><option value="obra_confirmada">Obras confirmadas</option><option value="candidato_cpv">Candidatos por CPV</option><option value="sin_clasificar">Sin clasificar</option></select>
    <label for="imp">Importe mínimo</label><select id="imp"><option value="0">Cualquier importe</option><option value="1000000">Más de 1 M€</option><option value="5000000">Más de 5 M€</option></select>
    <button id="resetFilters" type="button" class="side-reset">Limpiar filtros</button><button id="csv" class="side-export" type="button">⇩ Exportar CSV</button>
@@ -103,7 +103,7 @@ function zoomProvincia(prov){
  }catch(e){svg.setAttribute("viewBox","0 0 700 416")}
 }
 var COL={"PLACSP":"var(--c1)","Junta de Andalucía":"var(--c2)","Ayuntamiento":"var(--c3)"};
-var ESTC={"En plazo":"#2a9356","Plazo vencido":"#b66a16","En evaluación":"#c98a10","Adjudicada":"#2f6fb5","Resuelta":"#7a6fb0","Anuncio previo":"#238f8f","Anulada":"#c0392b","Desconocido":"#7d7d77"};
+var ESTC={"En plazo":"#2a9356","Plazo vencido":"#b66a16","En evaluación":"#c98a10","Adjudicada":"#2f6fb5","Resuelta":"#7a6fb0","Anuncio previo":"#238f8f","Anulada":"#c0392b","Cerrada":"#59636e","Retirada del feed":"#59636e","Desconocido":"#7d7d77"};
 var TN={L:"Pliego administrativo",T:"Pliego técnico",A:"Anexo",G:"Documento"};
 var ES={PRE:"Anuncio previo",PUB:"En plazo",EV:"En evaluación",ADJ:"Adjudicada",RES:"Resuelta",ANUL:"Anulada"};
 var D=[],sel=null,mode="demo",info="",dl=null,EMB={D:[],px:[]};
@@ -198,7 +198,24 @@ function parse(xml,acc){
    est:ES[txDirect(c,"ContractFolderStatusCode")]||"Desconocido",imp:imp,lotes:lotes,criteria_version:2,location_source:"execution",
    pl:tx(deadline,"EndDate"),u:lk.length?lk[0].getAttribute("href"):"",up:up,dc:dcs(c)};
   if(record.t.length>240)record.t=record.t.slice(0,237)+"…";
-  loc(record,city);acc[kk]=record;
+  loc(record,city);
+  var previous=acc[kk],oldTomb=previous&&previous.tombstone;
+  if(oldTomb&&oldTomb.when>up){
+   record.estado_publicado=record.est;record.tombstone=oldTomb;
+   record.est=oldTomb.tipo==="ANULADA"?"Anulada":oldTomb.tipo==="CERRADA"?"Cerrada":"Retirada del feed";
+  }
+  if(previous&&previous.ficha)record.ficha=previous.ficha;
+  acc[kk]=record;
+ }
+ var deleted=g(doc,"deleted-entry");
+ for(var j=0;j<deleted.length;j++){
+  var de=deleted[j],key=entryKey(de.getAttribute("ref")),when=de.getAttribute("when"),r=acc[key];
+  if(!r||!when||when<=(r.up||""))continue;
+  var comments=g(de,"comment"),reason=comments.length?(comments[0].getAttribute("type")||"").toUpperCase():"";
+  var label=reason==="ANULADA"?"Anulada":reason==="CERRADA"?"Cerrada":"Retirada del feed";
+  if(r.tombstone&&r.tombstone.when>when)continue;
+  if(!r.estado_publicado)r.estado_publicado=r.est||"Desconocido";
+  r.est=label;r.tombstone={when:when,tipo:reason||"SIN_CLASIFICAR"};
  }
 }
 function dcs(c){var o=[],seen={},T={LegalDocumentReference:"L",TechnicalDocumentReference:"T",AdditionalDocumentReference:"A",GeneralDocument:"G"},PX=["https://contrataciondelestado.es/FileSystem/servlet/GetDocumentByIdServlet?cifrado=QUC1GjXXSiLkydRHJBmbpw%3D%3D&DocumentIdParam=","https://contrataciondelestado.es/wps/wcm/connect/PLACE_es/Site/area/docAccCmpnt?srv=cmpnt&cmpntname=GetDocumentsById&source=library&DocumentIdParam="];
