@@ -150,6 +150,11 @@ def parse_lots(contract):
     return lots
 
 
+def entry_key(entry_id):
+    """Extrae la última parte de la URI; una URI vacía no tiene clave."""
+    return re.sub(r"^.*/", "", (entry_id or "").strip())
+
+
 def parse_entry(entry):
     contract = entry.find("{*}ContractFolderStatus")
     project = contract.find("{*}ProcurementProject") if contract is not None else None
@@ -181,7 +186,7 @@ def parse_entry(entry):
         if len(lot_cities) == 1:
             city = next(iter(lot_cities))
 
-    key = re.sub(r"^.*/", "", (entry.findtext("{*}id") or "").strip())
+    key = entry_key(entry.findtext("{*}id"))
     contract_id = (contract.findtext("{*}ContractFolderID") or "").strip()
     if not key or not contract_id:
         return None
