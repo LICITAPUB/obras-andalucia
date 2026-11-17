@@ -296,6 +296,10 @@ def main():
 
     # Telemetría acumulada: compatible con checkpoints antiguos y sin mover cursores.
     telemetry = state.setdefault("telemetry", {})
+    # El checkpoint anterior a la instrumentación no contiene métricas históricas.
+    # No se reconstruyen ni se reinician cursores: los contadores empiezan aquí.
+    telemetry.setdefault("scope", "desde_instrumentacion")
+    telemetry.setdefault("started_at", now.isoformat())
     for name in FEEDS:
         stats = telemetry.setdefault(name, {})
         stats.setdefault("pages_processed", 0)
@@ -330,7 +334,9 @@ def main():
                 "mode": mode,
                 "history_cutoff": FECHA_MINIMA,
                 "complete": bool(complete or mode == "incremental"),
-                "feeds": telemetry,
+                "telemetry_scope": telemetry.get("scope"),
+                "telemetry_started_at": telemetry.get("started_at"),
+                "feeds": {name: telemetry[name] for name in FEEDS},
             },
             "px": PX,
             "D": records,
