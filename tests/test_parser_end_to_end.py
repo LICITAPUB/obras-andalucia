@@ -70,7 +70,8 @@ process.stdout.write(JSON.stringify(acc));
                     url = actualizar.PX[prefix] + suffix if prefix >= 0 else suffix
                     docs.append([kind, name, url, code[0] if code else ""])
                 else:
-                    kind, name, prefix, suffix, code = item
+                    kind, name, prefix, suffix, *extra = item
+                    code = extra[0] if extra else ""
                     url = actualizar.PX[prefix] + suffix if prefix >= 0 else suffix
                     docs.append([kind, name, url, code or ""])
             value["dc"] = docs
