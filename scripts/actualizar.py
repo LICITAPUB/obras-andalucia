@@ -174,6 +174,7 @@ def parse_entry(entry):
 
 def collect(root, acc):
     accepted = 0
+    unique_added = 0
     for entry in root.findall("{*}entry"):
         record = parse_entry(entry)
         # PLACSP documenta que <updated> es la fecha del último anuncio y
@@ -182,11 +183,13 @@ def collect(root, acc):
             continue
         accepted += 1
         previous = acc.get(record["k"])
+        if previous is None:
+            unique_added += 1
         if previous is None or record["up"] >= previous.get("up", ""):
             if previous and previous.get("ficha") and record["up"] == previous.get("up", ""):
                 record["ficha"] = previous["ficha"]
             acc[record["k"]] = record
-    return accepted
+    return accepted, unique_added
 
 def atomic_json(path, obj):
     path = Path(path)
@@ -251,6 +254,17 @@ def main():
             name, {"next_url": None, "done": False, "latest_updated": ""}
         )
 
+    # Telemetría acumulada: compatible con checkpoints antiguos y sin mover cursores.
+    telemetry = state.setdefault("telemetry", {})
+    for name in FEEDS:
+        stats = telemetry.setdefault(name, {})
+        stats.setdefault("pages_processed", 0)
+        stats.setdefault("entries_seen", 0)
+        stats.setdefault("entries_matching_filters", 0)
+        stats.setdefault("unique_records_added", 0)
+        stats.setdefault("oldest_updated", "")
+        stats.setdefault("newest_updated", "")
+
     # Marca de agua incremental: conserva la fecha más reciente alcanzada
     # durante la reconstrucción histórica completa.
     if mode == "incremental" and "cycle_since" not in state:
@@ -272,6 +286,12 @@ def main():
             "updated": now.strftime("%d/%m/%Y"),
             "feed_until": max((state["feeds"][name].get("latest_updated", "") for name in FEEDS), default=""),
             "initial_window_done": complete or mode == "incremental",
+            "placsp_progress": {
+                "mode": mode,
+                "history_cutoff": FECHA_MINIMA,
+                "complete": bool(complete or mode == "incremental"),
+                "feeds": telemetry,
+            },
             "px": PX,
             "D": records,
         })
@@ -290,13 +310,30 @@ def main():
             print(f"{mode} / {name}: descargando página, quedan {budget} en este lote", flush=True)
             try:
                 root = ET.fromstring(fetch(url))
-                accepted = collect(root, acc)
+                accepted, unique_added = collect(root, acc)
             except Exception as exc:
                 failure = f"{name}: {exc}"
                 print("ERROR recuperable:", failure, file=sys.stderr, flush=True)
                 break
 
             updated = page_updated(root)
+            page_dates = [
+                (entry.findtext("{*}updated") or "").strip()
+                for entry in root.findall("{*}entry")
+            ]
+            page_dates = [value for value in page_dates if value]
+            stats = telemetry[name]
+            stats["pages_processed"] += 1
+            stats["entries_seen"] += len(root.findall("{*}entry"))
+            stats["entries_matching_filters"] += accepted
+            stats["unique_records_added"] += unique_added
+            if page_dates:
+                page_oldest = min(page_dates)
+                page_newest = max(page_dates)
+                if not stats["oldest_updated"] or page_oldest < stats["oldest_updated"]:
+                    stats["oldest_updated"] = page_oldest
+                if page_newest > stats["newest_updated"]:
+                    stats["newest_updated"] = page_newest
             feed_state["latest_updated"] = max(feed_state.get("latest_updated", ""), updated)
             next_url = page_next(root)
 
@@ -312,7 +349,12 @@ def main():
             budget -= 1
             save()
 
-            print(f"  entradas válidas incorporadas: {accepted}", flush=True)
+            print(
+                f"  entradas vistas: {stats['entries_seen']} · "
+                f"coincidencias: {stats['entries_matching_filters']} · "
+                f"registros únicos nuevos: {stats['unique_records_added']}",
+                flush=True,
+            )
             if feed_state["done"]:
                 print(f"{name}: feed terminado", flush=True)
                 break
