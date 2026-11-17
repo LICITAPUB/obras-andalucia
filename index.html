@@ -35,6 +35,7 @@
    <label for="prov">Provincia</label><select id="prov"><option value="">Todas las provincias</option></select>
    <label for="src">Fuente</label><select id="src"><option value="">Todas las fuentes</option><option>PLACSP</option><option>Junta de Andalucía</option><option>Ayuntamiento</option></select>
    <label for="est">Estado</label><select id="est"><option value="">Todos los estados</option><option>En plazo</option><option>Plazo vencido</option><option>En evaluación</option><option>Adjudicada</option><option>Resuelta</option><option>Anuncio previo</option><option>Anulada</option></select>
+   <label for="clas">Clasificación</label><select id="clas"><option value="">Todas las clasificaciones</option><option value="obra_confirmada">Obras confirmadas</option><option value="candidato_cpv">Candidatos por CPV</option></select>
    <label for="imp">Importe mínimo</label><select id="imp"><option value="0">Cualquier importe</option><option value="1000000">Más de 1 M€</option><option value="5000000">Más de 5 M€</option></select>
    <button id="resetFilters" type="button" class="side-reset">Limpiar filtros</button><button id="csv" class="side-export" type="button">⇩ Exportar CSV</button>
   </div>
@@ -234,8 +235,8 @@ function ph(x){var t=x[0],n=nm(x[1]),c=x[4]||"";
 }
 /* ---- dashboard ---- */
 function filt(){
- var q=nm($("q").value),p=$("prov").value,s=$("src").value,e=$("est").value,m=+$("imp").value;
- return D.filter(function(d){return(!p||d.prov===p)&&(!s||d.src===s)&&(!e||estadoVisible(d)===e)&&d.imp>=m&&(!q||nm(d.t+" "+d.mun+" "+d.org+" "+d.id+" "+JSON.stringify(d.lotes||[])+" "+(d.ficha?JSON.stringify(d.ficha):"")).indexOf(q)>=0)}).sort(function(a,b){return b.imp-a.imp})
+ var q=nm($("q").value),p=$("prov").value,s=$("src").value,e=$("est").value,m=+$("imp").value,k=$("clas").value;
+ return D.filter(function(d){return(!p||d.prov===p)&&(!s||d.src===s)&&(!e||estadoVisible(d)===e)&&(!k||d.clasificacion_radar===k)&&d.imp>=m&&(!q||nm(d.t+" "+d.mun+" "+d.org+" "+d.id+" "+(d.cpv||[]).join(" ")+" "+(d.clasificacion_radar||"")+" "+JSON.stringify(d.lotes||[])+" "+(d.ficha?JSON.stringify(d.ficha):"")).indexOf(q)>=0)}).sort(function(a,b){return b.imp-a.imp})
 }
 
 function fichaDe(d){return d.ficha||null}
@@ -319,8 +320,8 @@ function render(){
   buildLots(e.querySelector(".lotes-slot"),d);buildFicha(e.querySelector(".ficha-slot"),d);docs(e.querySelector(".dc"),d);
   e.onclick=function(ev){if(ev.target.closest("a,button,details,summary,input,select,label"))return;window.location.href="detalle.html?id="+encodeURIComponent(d.id||d.k)};l.appendChild(e)});
 }
-["q","prov","src","est","imp","col"].forEach(function(i){$(i).addEventListener("input",render)});
- $("resetFilters").onclick=function(){$("q").value="";["prov","src","est"].forEach(function(i){$(i).value=""});$("imp").value="0";render()};
+["q","prov","src","est","clas","imp","col"].forEach(function(i){$(i).addEventListener("input",render)});
+ $("resetFilters").onclick=function(){$("q").value="";["prov","src","est","clas"].forEach(function(i){$(i).value=""});$("imp").value="0";render()};
 
 /* ---- exportación ---- */
 $("csv").onclick=async function(){
