@@ -150,7 +150,7 @@ function money(v){
   return negative?-result:result;
  }catch(e){return 0}
 }
-function direct(e,n){var out=[];for(var k=e&&e.firstElementChild;k;k=k.nextElementSibling)if(k.localName===n)out.push(k);return out}
+function direct(e,n){var out=[];for(var k=e&&e.firstChild;k;k=k.nextSibling)if(k.nodeType===1&&k.localName===n)out.push(k);return out}
 function txDirect(e,n){var x=direct(e,n)[0];return x?(x.textContent||"").trim():""}
 function lotesDe(c){
  var out=[].map.call(direct(c,"ProcurementProjectLot"),function(l){
@@ -197,7 +197,7 @@ function parse(xml,acc){
  }
 }
 function dcs(c){var o=[],seen={},T={LegalDocumentReference:"L",TechnicalDocumentReference:"T",AdditionalDocumentReference:"A",GeneralDocument:"G"},PX=["https://contrataciondelestado.es/FileSystem/servlet/GetDocumentByIdServlet?cifrado=QUC1GjXXSiLkydRHJBmbpw%3D%3D&DocumentIdParam=","https://contrataciondelestado.es/wps/wcm/connect/PLACE_es/Site/area/docAccCmpnt?srv=cmpnt&cmpntname=GetDocumentsById&source=library&DocumentIdParam="];
- for(var k=c.firstElementChild;k;k=k.nextElementSibling){var t=T[k.localName];if(!t)continue;var u=tx(k,"URI");if(!u||seen[u])continue;seen[u]=1;var ix=PX.findIndex(function(p){return u.indexOf(p)===0}),name=t==="G"?tx(k,"FileName"):tx(k,"ID"),item=[t,name,ix,ix>=0?u.slice(PX[ix].length):u];if(t==="G")item.push(tx(k,"DocumentTypeCode"));o.push(item)}return o}
+ for(var k=c.firstChild;k;k=k.nextSibling){if(k.nodeType!==1)continue;var t=T[k.localName];if(!t)continue;var u=tx(k,"URI");if(!u||seen[u])continue;seen[u]=1;var ix=PX.findIndex(function(p){return u.indexOf(p)===0}),name=t==="G"?tx(k,"FileName"):tx(k,"ID"),item=[t,name,ix,ix>=0?u.slice(PX[ix].length):u];if(t==="G")item.push(tx(k,"DocumentTypeCode"));o.push(item)}return o}
 function docs(box,d){
  if(!d.dc||!d.dc.length)return;
  var gr={A:[],D:[],"":[]};d.dc.forEach(function(x,i){x.i=i;gr[ph(x)].push(x)});
