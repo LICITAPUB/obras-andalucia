@@ -208,7 +208,7 @@ function ph(x){var t=x[0],n=nm(x[1]),c=x[4]||"";
 /* ---- dashboard ---- */
 function filt(){
  var q=nm($("q").value),p=$("prov").value,s=$("src").value,e=$("est").value,m=+$("imp").value;
- return D.filter(function(d){return(!p||d.prov===p)&&(!s||d.src===s)&&(!e||estadoVisible(d)===e)&&d.imp>=m&&(!q||nm(d.t+" "+d.mun+" "+d.org+" "+d.id+" "+(d.ficha?JSON.stringify(d.ficha):"")).indexOf(q)>=0)}).sort(function(a,b){return b.imp-a.imp})
+ return D.filter(function(d){return(!p||d.prov===p)&&(!s||d.src===s)&&(!e||estadoVisible(d)===e)&&d.imp>=m&&(!q||nm(d.t+" "+d.mun+" "+d.org+" "+d.id+" "+JSON.stringify(d.lotes||[])+" "+(d.ficha?JSON.stringify(d.ficha):"")).indexOf(q)>=0)}).sort(function(a,b){return b.imp-a.imp})
 }
 
 function fichaDe(d){return d.ficha||null}
@@ -287,7 +287,7 @@ function render(){
   e.innerHTML='<h3></h3><div class="m"><span class="tg e"></span><span class="tg s"></span><span class="a"></span></div><div class="m" style="margin-top:5px"><span class="imp"></span> · <span class="p"></span> <a target="_blank" rel="noopener" class="u">Ver licitación ↗</a></div><div class="lotes-slot"></div><div class="ficha-slot"></div><div class="dc"></div>';
   e.querySelector("h3").textContent=d.t;var te=e.querySelector(".tg.e");var est=estadoVisible(d);te.textContent=est;te.style.background=ESTC[est]||"#7d7d77";var ts=e.querySelector(".tg.s");ts.textContent=d.src;ts.style.background="var(--charcoal)";
   e.querySelector(".a").textContent=(d.mun===d.prov?"Provincia de "+d.prov:d.mun+" ("+d.prov+")")+(d.org?" · "+d.org:"");
-  e.querySelector(".imp").textContent=eur(d.imp);e.querySelector(".p").textContent="Fecha límite: "+fd(d.pl);
+  e.querySelector(".imp").textContent="Total expediente: "+eur(d.imp);e.querySelector(".p").textContent="Fecha límite: "+fd(d.pl);
   var u=e.querySelector(".u");if(d.u){u.href=d.u;u.onclick=function(ev){ev.stopPropagation()}}else u.remove();
   buildLots(e.querySelector(".lotes-slot"),d);buildFicha(e.querySelector(".ficha-slot"),d);docs(e.querySelector(".dc"),d);
   e.onclick=function(ev){if(ev.target.closest("a,button,details,summary,input,select,label"))return;window.location.href="detalle.html?id="+encodeURIComponent(d.id||d.k)};l.appendChild(e)});
