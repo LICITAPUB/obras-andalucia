@@ -153,6 +153,8 @@ class ParserAuditTests(unittest.TestCase):
         item = actualizar.parse_entry(self.entry("1250000.75", ["400000.25", "500000.50"]))
         self.assertIsNotNone(item)
         self.assertEqual(item["imp"], 1250000.75)
+        self.assertEqual(item["criteria_version"], 2)
+        self.assertEqual(item["location_source"], "execution")
         self.assertEqual(item["mun"], "Fuengirola")
         self.assertEqual(item["prov"], "Málaga")
         self.assertEqual(len(item["lotes"]), 2)
