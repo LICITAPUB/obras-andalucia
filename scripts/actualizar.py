@@ -253,6 +253,27 @@ def parse_entry(entry):
     locate(record, city)
     return record
 
+def apply_deleted_entry(deleted, acc):
+    """Conserva el expediente y aplica su retirada solo si es posterior a su última entrada."""
+    key = entry_key(deleted.get("ref", ""))
+    when = (deleted.get("when") or "").strip()
+    record = acc.get(key)
+    if not key or not when or record is None:
+        return False
+    if when <= (record.get("up") or ""):
+        return False
+    comment = deleted.find("{*}comment")
+    reason = (comment.get("type", "") if comment is not None else "").strip().upper()
+    label = {"ANULADA": "Anulada", "CERRADA": "Cerrada"}.get(reason, "Retirada del feed")
+    current = record.get("tombstone") or {}
+    if when < current.get("when", ""):
+        return False
+    record.setdefault("estado_publicado", record.get("est", "Desconocido"))
+    record["est"] = label
+    record["tombstone"] = {"when": when, "tipo": reason or "SIN_CLASIFICAR"}
+    return True
+
+
 def collect(root, acc):
     accepted = 0
     unique_added = 0
@@ -269,7 +290,19 @@ def collect(root, acc):
         if previous is None or record["up"] >= previous.get("up", ""):
             if previous and previous.get("ficha") and record["up"] == previous.get("up", ""):
                 record["ficha"] = previous["ficha"]
+            # Una entrada posterior al tombstone lo deja sin efecto; si el
+            # tombstone es posterior, se conserva como estado histórico vigente.
+            tombstone = previous.get("tombstone") if previous else None
+            if tombstone and tombstone.get("when", "") > record["up"]:
+                record["estado_publicado"] = record.get("est", "Desconocido")
+                record["tombstone"] = tombstone
+                reason = tombstone.get("tipo", "")
+                record["est"] = {"ANULADA": "Anulada", "CERRADA": "Cerrada"}.get(
+                    reason, "Retirada del feed"
+                )
             acc[record["k"]] = record
+    for deleted in root.findall("{*}deleted-entry"):
+        apply_deleted_entry(deleted, acc)
     return accepted, unique_added
 
 def atomic_json(path, obj):
