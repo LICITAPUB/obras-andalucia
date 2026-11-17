@@ -189,7 +189,11 @@ function parse(xml,acc){
   var kk=entryKey(txDirect(e,"id"));if(!kk||acc[kk]&&acc[kk].up>up)continue;
   var partyName=pt?g(pt,"PartyName")[0]:null,org=tx(partyName,"Name");
   var tp=direct(c,"TenderingProcess")[0],deadline=direct(tp,"TenderSubmissionDeadlinePeriod")[0];
+  var typeCode=tx(pp,"TypeCode"),cpvWork=cp.some(function(x){return x.indexOf("45")===0});
+  var classification=typeCode==="3"?"obra_confirmada":"candidato_cpv";
+  var classificationReason=typeCode==="3"?(cpvWork?"TypeCode=3":"TypeCode=3; sin CPV de obras"):"CPV de obras; tipo de contrato distinto o no informado";
   var record={k:kk,id:id,t:txDirect(pp,"Name"),mun:city||pr,prov:pr,org:org,src:srcOf(org),
+   tipo_contrato_codigo:typeCode,cpv:cp,cpv_obra:cpvWork,clasificacion_radar:classification,motivo_clasificacion:classificationReason,
    est:ES[txDirect(c,"ContractFolderStatusCode")]||"Desconocido",imp:imp,lotes:lotes,criteria_version:2,location_source:"execution",
    pl:tx(deadline,"EndDate"),u:lk.length?lk[0].getAttribute("href"):"",up:up,dc:dcs(c)};
   if(record.t.length>240)record.t=record.t.slice(0,237)+"…";
