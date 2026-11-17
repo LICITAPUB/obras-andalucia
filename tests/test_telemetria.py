@@ -98,7 +98,8 @@ class TelemetryTests(unittest.TestCase):
 
 
 class ParserAuditTests(unittest.TestCase):
-    def entry(self, estimated, lot_amounts, execution_city="Fuengirola", contracting_city="Madrid"):
+    def entry(self, estimated, lot_amounts, execution_city="Fuengirola", contracting_city="Madrid", lot_cities=None):
+        lot_cities = lot_cities or [execution_city] * len(lot_amounts)
         lots = "".join(
             f"""
             <cac:ProcurementProjectLot>
@@ -108,10 +109,15 @@ class ParserAuditTests(unittest.TestCase):
                 <cac:BudgetAmount>
                   <cbc:TaxExclusiveAmount>{amount}</cbc:TaxExclusiveAmount>
                 </cac:BudgetAmount>
+                <cac:RealizedLocation>
+                  <cbc:CountrySubentity>Málaga</cbc:CountrySubentity>
+                  <cbc:CountrySubentityCode>ES617</cbc:CountrySubentityCode>
+                  <cac:Address><cbc:CityName>{lot_city}</cbc:CityName></cac:Address>
+                </cac:RealizedLocation>
               </cac:ProcurementProject>
             </cac:ProcurementProjectLot>
             """
-            for index, amount in enumerate(lot_amounts, 1)
+            for index, (amount, lot_city) in enumerate(zip(lot_amounts, lot_cities), 1)
         )
         return ET.fromstring(f"""
         <entry xmlns="http://www.w3.org/2005/Atom"
@@ -150,7 +156,7 @@ class ParserAuditTests(unittest.TestCase):
         """)
 
     def test_total_expediente_keeps_decimals_and_execution_location(self):
-        item = actualizar.parse_entry(self.entry("1250000.75", ["400000.25", "500000.50"]))
+        item = actualizar.parse_entry(self.entry("1250000.75", ["400000.25", "500000.50"], lot_cities=["Fuengirola", "Marbella"]))
         self.assertIsNotNone(item)
         self.assertEqual(item["imp"], 1250000.75)
         self.assertEqual(item["criteria_version"], 2)
@@ -159,6 +165,7 @@ class ParserAuditTests(unittest.TestCase):
         self.assertEqual(item["prov"], "Málaga")
         self.assertEqual(len(item["lotes"]), 2)
         self.assertEqual([lot["id"] for lot in item["lotes"]], ["1", "2"])
+        self.assertEqual([lot["mun"] for lot in item["lotes"]], ["Fuengirola", "Marbella"])
 
     def test_threshold_applies_to_total_expediente_not_each_lot(self):
         item = actualizar.parse_entry(self.entry("0", ["600000.25", "500000.50"]))
