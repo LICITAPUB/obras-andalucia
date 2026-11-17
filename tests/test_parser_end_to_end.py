@@ -16,7 +16,8 @@ SPEC.loader.exec_module(actualizar)
 
 
 def js_function(source, start, end):
-    return source[source.index(start):source.index(end, source.index(start))]
+    first = source.index(start)
+    return source[first:source.index(end, first)]
 
 
 class ParserEndToEndEquivalenceTests(unittest.TestCase):
@@ -26,14 +27,11 @@ class ParserEndToEndEquivalenceTests(unittest.TestCase):
         if not cls.node:
             raise unittest.SkipTest("Node.js no está disponible; CI debe instalarlo")
         html = HTML.read_text(encoding="utf-8")
-        parser = "\n".join([
-            js_function(html, "function normalizeCity(city)", "function docs("),
-            js_function(html, "function nm(s)", "var NU="),
-            js_function(html, "var NU=", "var OUT="),
-        ])
-        # Las constantes geográficas son deliberadamente pequeñas y explícitas:
-        # el fixture solo usa Málaga, Fuengirola y Marbella.
-        parser = """
+        parser_functions = js_function(html, "function normalizeCity(city)", "function docs(")
+        cls.js_harness = """
+const {DOMParser}=require("@xmldom/xmldom");
+global.DOMParser=DOMParser;
+const fs=require("fs");
 var NU={ES617:"Málaga"},PN={malaga:"Málaga"};
 var PC={"Málaga":[36.8,-4.6]};
 var TW={fuengirola:[36.540,-4.625],marbella:[36.510,-4.886]};
@@ -43,21 +41,15 @@ function nm(s){return (s||"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").
 function srcOf(o){o=nm(o);return o.indexOf("ayuntamiento")>=0?"Ayuntamiento":(o.indexOf("junta de andalucia")>=0||o.indexOf("consejeria")>=0||o.indexOf("servicio andaluz")>=0||(o.indexOf("agencia")>=0&&o.indexOf("andaluc")>=0))?"Junta de Andalucía":"PLACSP"}
 function g(e,n){return e.getElementsByTagNameNS("*",n)}
 function tx(e,n){var x=e&&g(e,n)[0];return x?(x.textContent||"").trim():""}
-""" + parser + js_function(html, "function money(v)", "function docs(") + """
-const fs=require("fs");
+""" + parser_functions + """
 const xml=fs.readFileSync(process.argv[1],"utf8");
 const acc={};
 parse(xml,acc);
 process.stdout.write(JSON.stringify(acc));
 """
-        cls.js_harness = """
-const {DOMParser}=require("@xmldom/xmldom");
-global.DOMParser=DOMParser;
-""" + parser
 
     def test_full_records_match_for_reference_xml_feed(self):
-        xml = FIXTURE.read_text(encoding="utf-8")
-        root = ET.fromstring(xml)
+        root = ET.fromstring(FIXTURE.read_text(encoding="utf-8"))
         expected = {}
         for entry in root.findall("{*}entry"):
             record = actualizar.parse_entry(entry)
