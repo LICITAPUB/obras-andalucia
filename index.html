@@ -187,7 +187,7 @@ function parse(xml,acc){
   var imp=importeExpediente(pp,lotes);
   if(imp<=1000000)continue;
   var kk=entryKey(txDirect(e,"id"));if(!kk||acc[kk]&&acc[kk].up>up)continue;
-  var partyName=g(pt,"PartyName")[0],org=tx(partyName,"Name");
+  var partyName=pt?g(pt,"PartyName")[0]:null,org=tx(partyName,"Name");
   var tp=direct(c,"TenderingProcess")[0],deadline=direct(tp,"TenderSubmissionDeadlinePeriod")[0];
   var record={k:kk,id:id,t:txDirect(pp,"Name"),mun:city||pr,prov:pr,org:org,src:srcOf(org),
    est:ES[txDirect(c,"ContractFolderStatusCode")]||"Desconocido",imp:imp,lotes:lotes,criteria_version:2,location_source:"execution",
