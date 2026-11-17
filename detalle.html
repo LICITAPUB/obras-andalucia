@@ -19,7 +19,7 @@ if(d.criteria_version!==2 || d.location_source!=='execution'){
 }
 const lots=d.lotes||[];
 if(lots.length){
- html+='<section class="panel"><h2 class="section-title">Lotes del expediente ('+lots.length+')</h2><ul class="lots-list">'+lots.map(l=>'<li>'+esc((l.id?'Lote '+l.id:'Lote')+(l.t?' · '+l.t:'')+(l.imp>0?' · '+money(l.imp):''))+'</li>').join('')+'</ul></section>';
+ html+='<section class="panel"><h2 class="section-title">Lotes del expediente ('+lots.length+')</h2><ul class="lots-list">'+lots.map(l=>'<li>'+esc((l.id?'Lote '+l.id:'Lote')+(l.t?' · '+l.t:'')+(l.imp>0?' · '+money(l.imp):'')+(l.mun?' · Ejecución: '+l.mun+(l.prov&&l.prov!==l.mun?' ('+l.prov+')':''):''))+'</li>').join('')+'</ul></section>';
 }
 html+='<section class="panel"><h2 class="section-title">Ficha técnica</h2>';
 if(f.descripcion)html+='<div class="detail-block" style="margin-bottom:10px"><h3>Descripción del procedimiento</h3><p class="description">'+esc(f.descripcion)+'</p></div>';
