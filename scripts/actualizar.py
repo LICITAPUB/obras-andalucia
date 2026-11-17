@@ -125,9 +125,9 @@ def parse_lots(contract):
         if lot_project is None:
             continue
         budget = lot_project.find("{*}BudgetAmount")
-        amount = money(
-            budget.findtext("{*}TaxExclusiveAmount") or
-            budget.findtext("{*}TotalAmount") if budget is not None else 0
+        amount = (
+            money(budget.findtext("{*}TaxExclusiveAmount") or budget.findtext("{*}TotalAmount"))
+            if budget is not None else 0.0
         )
         lots.append({
             "id": (lot.findtext("{*}ID") or "").strip(),
