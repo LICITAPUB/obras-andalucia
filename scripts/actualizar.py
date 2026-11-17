@@ -24,6 +24,7 @@ import unicodedata
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 DATA = Path(__file__).resolve().parent.parent / "data" / "obras.json"
@@ -113,6 +114,34 @@ def locate(record, city):
     record["mun"] = record["prov"] if (not city or nm(city) in NO_AND) else city
     record["la"], record["lo"], record["ap"] = round(coords[0], 4), round(coords[1], 4), approximate
 
+def money(value):
+    """Convierte importes CODICE a euros con dos decimales, sin redondear a enteros."""
+    try:
+        return round(float(Decimal(str(value or "0").strip().replace(",", "."))), 2)
+    except (InvalidOperation, ValueError, TypeError):
+        return 0.0
+
+
+def parse_lots(contract):
+    """Conserva todos los lotes del expediente; el umbral no se aplica por lote."""
+    lots = []
+    for lot in contract.findall("{*}ProcurementProjectLot"):
+        lot_project = lot.find("{*}ProcurementProject")
+        if lot_project is None:
+            continue
+        budget = lot_project.find("{*}BudgetAmount")
+        amount = money(
+            budget.findtext("{*}TaxExclusiveAmount") or
+            budget.findtext("{*}TotalAmount") if budget is not None else 0
+        )
+        lots.append({
+            "id": (lot.findtext("{*}ID") or "").strip(),
+            "t": (lot_project.findtext("{*}Name") or "").strip(),
+            "imp": amount,
+        })
+    return lots
+
+
 def parse_entry(entry):
     contract = entry.find("{*}ContractFolderStatus")
     project = contract.find("{*}ProcurementProject") if contract is not None else None
@@ -121,26 +150,37 @@ def parse_entry(entry):
     cpvs = [node.text.strip() for node in project.iterfind(".//{*}ItemClassificationCode") if node.text]
     if not ((project.findtext("{*}TypeCode") or "").strip() == "3" or any(code.startswith("45") for code in cpvs)):
         return None
-    nuts = (project.findtext("{*}RealizedLocation/{*}CountrySubentityCode") or "").strip()
-    subentity = project.findtext("{*}RealizedLocation/{*}CountrySubentity") or ""
+
+    # Ubicación elegida: lugar real de ejecución (CODICE RealizedLocation),
+    # nunca el municipio del órgano de contratación.
+    realized = project.find("{*}RealizedLocation")
+    nuts = (realized.findtext("{*}CountrySubentityCode") or "").strip() if realized is not None else ""
+    subentity = (realized.findtext("{*}CountrySubentity") or "").strip() if realized is not None else ""
+    city = (realized.findtext(".//{*}CityName") or "").strip() if realized is not None else ""
     province = NUTS.get(nuts[:5]) if nuts.startswith("ES61") else PN.get(nm(subentity))
     if not province:
         return None
+
     key = re.sub(r"^.*/", "", (entry.findtext("{*}id") or "").strip())
     contract_id = (contract.findtext("{*}ContractFolderID") or "").strip()
     if not key or not contract_id:
         return None
     party = contract.find("{*}LocatedContractingParty")
     org = (party.findtext(".//{*}PartyName/{*}Name") or "").strip() if party is not None else ""
-    city = (party.findtext(".//{*}CityName") or "").strip() if party is not None else ""
+
     budget = project.find("{*}BudgetAmount")
-    try:
-        amount = round(float((budget.findtext("{*}TaxExclusiveAmount") or
-                              budget.findtext("{*}EstimatedOverallContractAmount") or "0").strip()))
-    except Exception:
-        amount = 0
+    lots = parse_lots(contract)
+    # Criterio económico: valor estimado TOTAL del expediente (> 1 M€).
+    # Si no existe, sumar los importes de todos los lotes; no descartar lotes
+    # individualmente por quedar por debajo del umbral.
+    amount = money(budget.findtext("{*}EstimatedOverallContractAmount")) if budget is not None else 0.0
+    if amount <= 0 and lots and all(lot["imp"] > 0 for lot in lots):
+        amount = round(sum(lot["imp"] for lot in lots), 2)
+    if amount <= 0 and budget is not None:
+        amount = money(budget.findtext("{*}TaxExclusiveAmount") or budget.findtext("{*}TotalAmount"))
     if amount <= IMPORTE_MINIMO:
         return None
+
     org_norm = nm(org)
     source = ("Ayuntamiento" if "ayuntamiento" in org_norm else
               "Junta de Andalucía" if ("junta de andalucia" in org_norm or "consejeria" in org_norm
@@ -163,7 +203,7 @@ def parse_entry(entry):
         "k": key, "id": contract_id, "t": (project.findtext("{*}Name") or "").strip(),
         "prov": province, "org": org, "src": source,
         "est": ESTADOS.get((contract.findtext("{*}ContractFolderStatusCode") or "").strip(), "Desconocido"),
-        "imp": amount,
+        "imp": amount, "lotes": lots,
         "pl": (contract.findtext("{*}TenderingProcess/{*}TenderSubmissionDeadlinePeriod/{*}EndDate") or "").strip(),
         "u": link, "dc": documents, "up": updated,
     }
@@ -282,7 +322,7 @@ def main():
             if key not in ("D", "info", "updated", "feed_until", "initial_window_done")
         }
         meta.update({
-            "info": f"{len(records)} licitaciones de obra en Andalucía · PLACSP · importe superior a 1.000.000 € · desde {FECHA_MINIMA}",
+            "info": f"{len(records)} licitaciones de obra en Andalucía · PLACSP · valor estimado total superior a 1.000.000 € · desde {FECHA_MINIMA}",
             "updated": now.strftime("%d/%m/%Y"),
             "feed_until": max((state["feeds"][name].get("latest_updated", "") for name in FEEDS), default=""),
             "initial_window_done": complete or mode == "incremental",
