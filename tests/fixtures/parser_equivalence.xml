@@ -36,4 +36,15 @@
    <cac:ProcurementProjectLot><cbc:ID>2</cbc:ID><cac:ProcurementProject><cbc:Name>Alumbrado</cbc:Name><cac:BudgetAmount><cbc:TaxExclusiveAmount>500000.50</cbc:TaxExclusiveAmount></cac:BudgetAmount><cac:RealizedLocation><cbc:CountrySubentity>Málaga</cbc:CountrySubentity><cbc:CountrySubentityCode>ES617</cbc:CountrySubentityCode><cac:Address><cbc:CityName>Fuengirola</cbc:CityName></cac:Address></cac:RealizedLocation></cac:ProcurementProject></cac:ProcurementProjectLot>
   </ext:ContractFolderStatus>
  </entry>
+ <entry>
+  <id>https://contrataciondelestado.es/KEY-E2E-3</id><updated>2026-11-15T10:00:00Z</updated>
+  <link href="https://example.test/expediente/3"/>
+  <ext:ContractFolderStatus>
+   <cbc:ContractFolderID>EXP-E2E-3</cbc:ContractFolderID><cbc:ContractFolderStatusCode>EV</cbc:ContractFolderStatusCode>
+   <cac:ProcurementProject><cbc:Name>Proyecto de rehabilitación y mejora de infraestructuras municipales Proyecto de rehabilitación y mejora de infraestructuras municipales Proyecto de rehabilitación y mejora de infraestructuras municipales Proyecto de rehabilitación y mejora de infraestructuras municipales Proyecto de rehabilitación y mejora de infraestructuras municipales</cbc:Name><cbc:TypeCode>3</cbc:TypeCode>
+    <cac:BudgetAmount><cbc:EstimatedOverallContractAmount>1500000</cbc:EstimatedOverallContractAmount></cac:BudgetAmount>
+    <cac:RealizedLocation><cbc:CountrySubentity>Málaga</cbc:CountrySubentity><cbc:CountrySubentityCode>ES617</cbc:CountrySubentityCode><cac:Address><cbc:CityName>Madrid</cbc:CityName></cac:Address></cac:RealizedLocation>
+   </cac:ProcurementProject>
+  </ext:ContractFolderStatus>
+ </entry>
 </feed>
