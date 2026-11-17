@@ -228,9 +228,20 @@ def parse_entry(entry):
             else:
                 documents.append(comp(tag, (node.findtext("{*}ID") or "").strip(), url))
     updated = (entry.findtext("{*}updated") or "").strip()
+    # TypeCode=3 confirma obra; CPV 45 con otro tipo queda como candidato.
+    type_code = (project.findtext("{*}TypeCode") or "").strip()
+    is_cpv_work = any(code.startswith("45") for code in cpvs)
+    classification = "obra_confirmada" if type_code == "3" else "candidato_cpv"
+    classification_reason = (
+        "TypeCode=3" if type_code == "3" and is_cpv_work else
+        "TypeCode=3; sin CPV de obras" if type_code == "3" else
+        "CPV de obras; tipo de contrato distinto o no informado"
+    )
     record = {
         "k": key, "id": contract_id, "t": (project.findtext("{*}Name") or "").strip(),
         "prov": province, "org": org, "src": source,
+        "tipo_contrato_codigo": type_code, "cpv": cpvs, "cpv_obra": is_cpv_work,
+        "clasificacion_radar": classification, "motivo_clasificacion": classification_reason,
         "est": ESTADOS.get((contract.findtext("{*}ContractFolderStatusCode") or "").strip(), "Desconocido"),
         "imp": amount, "lotes": lots,
         "criteria_version": 2, "location_source": "execution",
