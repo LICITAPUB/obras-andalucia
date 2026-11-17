@@ -125,14 +125,33 @@ function estadoVisible(d){
 function fd(s){var a=(s||"").slice(0,10).split("-");return a.length===3?a[2]+"/"+a[1]+"/"+a[0]:"sin fecha"}
 function loc(r,city){
  var c=TW[nm(city)];
- if(!c){var h=" "+nm(r.org+" "+r.t+" "+city)+" ";for(var i=0;i<TK.length;i++){if(h.indexOf(" "+TK[i]+" ")>=0){c=TW[TK[i]];break}}}
- if(c){r.la=c[0];r.lo=c[1];r.ap=0}else{var q=PC[r.prov];r.la=q[0]+(Math.random()-.5)*.3;r.lo=q[1]+(Math.random()-.5)*.4;r.ap=1}
+ if(c){r.la=c[0];r.lo=c[1];r.ap=0}
+ else{var q=PC[r.prov];r.la=q[0];r.lo=q[1];r.ap=1}
 }
 function srcOf(o){o=nm(o);return o.indexOf("ayuntamiento")>=0?"Ayuntamiento":(o.indexOf("junta de andalucia")>=0||o.indexOf("consejeria")>=0||o.indexOf("servicio andaluz")>=0||(o.indexOf("agencia")>=0&&o.indexOf("andaluc")>=0))?"Junta de Andalucía":"PLACSP"}
 
 /* ---- lectura de ficheros PLACSP (ATOM/CODICE) ---- */
 function g(e,n){return e.getElementsByTagNameNS("*",n)}
 function tx(e,n){var x=e&&g(e,n)[0];return x?(x.textContent||"").trim():""}
+function money(v){
+ var n=Number(String(v==null?"0":v).trim().replace(",","."));
+ return Number.isFinite(n)?Math.round((n+Number.EPSILON)*100)/100:0;
+}
+function lotesDe(c){
+ var out=[].map.call(g(c,"ProcurementProjectLot"),function(l){
+  var p=g(l,"ProcurementProject")[0];if(!p)return null;
+  var b=g(p,"BudgetAmount")[0];
+  return {id:tx(l,"ID"),t:tx(p,"Name"),imp:money(tx(b,"TaxExclusiveAmount")||tx(b,"TotalAmount"))};
+ }).filter(Boolean);
+ return out;
+}
+function importeExpediente(pp,lotes){
+ var b=g(pp,"BudgetAmount")[0],v=money(tx(b,"EstimatedOverallContractAmount"));
+ if(v>0)return v;
+ if(lotes.length&&lotes.every(function(l){return l.imp>0}))
+  return money(lotes.reduce(function(s,l){return s+l.imp},0));
+ return money(tx(b,"TaxExclusiveAmount")||tx(b,"TotalAmount"));
+}
 function parse(xml,acc){
  var doc=new DOMParser().parseFromString(xml,"application/xml"),es=g(doc,"entry");
  for(var i=0;i<es.length;i++){
@@ -140,14 +159,18 @@ function parse(xml,acc){
   var pp=g(c,"ProcurementProject")[0];if(!pp)continue;
   var cp=[].map.call(g(pp,"ItemClassificationCode"),function(x){return x.textContent.trim()});
   if(!(tx(pp,"TypeCode")==="3"||cp.some(function(x){return x.indexOf("45")===0})))continue;
-  var nu=tx(pp,"CountrySubentityCode"),pr=nu.indexOf("ES61")===0?NU[nu.slice(0,5)]:PN[nm(tx(pp,"CountrySubentity"))];
+  var rl=g(pp,"RealizedLocation")[0],nu=tx(rl,"CountrySubentityCode");
+  var pr=nu.indexOf("ES61")===0?NU[nu.slice(0,5)]:PN[nm(tx(rl,"CountrySubentity"))];
   if(!pr)continue;
-  var id=tx(c,"ContractFolderID");if(!id)continue;
-  var pt=g(c,"LocatedContractingParty")[0],ba=g(pp,"BudgetAmount")[0],lk=g(e,"link"),up=tx(e,"updated");
+  var city=tx(rl,"CityName"),id=tx(c,"ContractFolderID");if(!id)continue;
+  var pt=g(c,"LocatedContractingParty")[0],lk=g(e,"link"),up=tx(e,"updated");
+  var lotes=lotesDe(c),imp=importeExpediente(pp,lotes);
+  if(imp<=1000000)continue;
   var kk=(tx(e,"id").split("/").pop())||id;if(acc[kk]&&acc[kk].up>up)continue;
-  acc[kk]={k:kk,id:id,t:tx(pp,"Name"),mun:tx(pt,"CityName")||pr,prov:pr,org:tx(pt,"Name"),src:srcOf(tx(pt,"Name")),
-   est:ES[tx(c,"ContractFolderStatusCode")]||"Desconocido",imp:Math.round(parseFloat(tx(ba,"TaxExclusiveAmount")||tx(ba,"EstimatedOverallContractAmount"))||0),
+  var record={k:kk,id:id,t:tx(pp,"Name"),mun:city||pr,prov:pr,org:tx(pt,"Name"),src:srcOf(tx(pt,"Name")),
+   est:ES[tx(c,"ContractFolderStatusCode")]||"Desconocido",imp:imp,lotes:lotes,
    pl:tx(g(c,"TenderSubmissionDeadlinePeriod")[0],"EndDate"),u:lk.length?lk[0].getAttribute("href"):"",up:up,dc:dcs(c)};
+  loc(record,city);acc[kk]=record;
  }
 }
 function dcs(c){var o=[],T={LegalDocumentReference:"L",TechnicalDocumentReference:"T",AdditionalDocumentReference:"A",GeneralDocument:"G"};
@@ -190,6 +213,16 @@ function filt(){
 
 function fichaDe(d){return d.ficha||null}
 function node(tag,cls,txt){var x=document.createElement(tag);if(cls)x.className=cls;if(txt!==undefined)x.textContent=txt;return x}
+function buildLots(parent,d){
+ var lots=d.lotes||[];if(!lots.length)return;
+ var det=node("details","lots-details"),sum=node("summary","","Ver lotes del expediente ("+lots.length+")");
+ det.appendChild(sum);var ul=node("ul","lots-list");
+ lots.forEach(function(l){
+  var label=(l.id?"Lote "+l.id:"Lote")+(l.t?" · "+l.t:"")+(l.imp>0?" · "+eur(l.imp):"");
+  ul.appendChild(node("li","",label));
+ });
+ det.appendChild(ul);parent.appendChild(det);
+}
 function addTechBlock(parent,title,content){if(!content||!(Array.isArray(content)?content.length:true))return;var b=node("div","tech-block"),h=node("h4","",title);b.appendChild(h);if(Array.isArray(content)){var ul=node("ul");content.forEach(function(v){ul.appendChild(node("li","",v))});b.appendChild(ul)}else b.appendChild(node("p","",content));parent.appendChild(b)}
 function buildFicha(parent,d){
  var f=fichaDe(d);
@@ -251,12 +284,12 @@ function render(){
  $("cnt").textContent=L.length>100?"Mostrando las 100 de mayor importe de "+L.length.toLocaleString("es-ES"):L.length+" licitaciones encontradas";
  L.slice(0,100).forEach(function(d){
   var e=document.createElement("article");e.className="it"+(sel===d.k?" on":"");e.setAttribute("data-id",d.k);
-  e.innerHTML='<h3></h3><div class="m"><span class="tg e"></span><span class="tg s"></span><span class="a"></span></div><div class="m" style="margin-top:5px"><span class="imp"></span> · <span class="p"></span> <a target="_blank" rel="noopener" class="u">Ver licitación ↗</a></div><div class="ficha-slot"></div><div class="dc"></div>';
+  e.innerHTML='<h3></h3><div class="m"><span class="tg e"></span><span class="tg s"></span><span class="a"></span></div><div class="m" style="margin-top:5px"><span class="imp"></span> · <span class="p"></span> <a target="_blank" rel="noopener" class="u">Ver licitación ↗</a></div><div class="lotes-slot"></div><div class="ficha-slot"></div><div class="dc"></div>';
   e.querySelector("h3").textContent=d.t;var te=e.querySelector(".tg.e");var est=estadoVisible(d);te.textContent=est;te.style.background=ESTC[est]||"#7d7d77";var ts=e.querySelector(".tg.s");ts.textContent=d.src;ts.style.background="var(--charcoal)";
   e.querySelector(".a").textContent=(d.mun===d.prov?"Provincia de "+d.prov:d.mun+" ("+d.prov+")")+(d.org?" · "+d.org:"");
   e.querySelector(".imp").textContent=eur(d.imp);e.querySelector(".p").textContent="Fecha límite: "+fd(d.pl);
   var u=e.querySelector(".u");if(d.u){u.href=d.u;u.onclick=function(ev){ev.stopPropagation()}}else u.remove();
-  buildFicha(e.querySelector(".ficha-slot"),d);docs(e.querySelector(".dc"),d);
+  buildLots(e.querySelector(".lotes-slot"),d);buildFicha(e.querySelector(".ficha-slot"),d);docs(e.querySelector(".dc"),d);
   e.onclick=function(ev){if(ev.target.closest("a,button,details,summary,input,select,label"))return;window.location.href="detalle.html?id="+encodeURIComponent(d.id||d.k)};l.appendChild(e)});
 }
 ["q","prov","src","est","imp","col"].forEach(function(i){$(i).addEventListener("input",render)});
@@ -264,8 +297,8 @@ function render(){
 
 /* ---- exportación ---- */
 $("csv").onclick=async function(){
- var h=["Expediente","Título","Municipio","Provincia","Órgano","Fuente","Estado","Importe sin IVA","Plazo","Enlace","Descripción del procedimiento","Clasificación empresarial","Documentación técnica por juicio de valor","Sobres y contenido","Duración","Procedimiento","Tramitación","CPV","Garantía definitiva","Regulación armonizada","Financiación","Criterios de adjudicación","Condiciones especiales","Estado del análisis"],q=function(v){return'"'+String(v==null?"":v).replace(/"/g,'""')+'"'};
- var rows=[h.map(q).join(";")].concat(filt().map(function(d){var f=fichaDe(d)||{};return[d.id,d.t,d.mun,d.prov,d.org,d.src,estadoVisible(d),d.imp,fd(d.pl),d.u,f.descripcion,f.clasificacion,f.documentacion_tecnica_juicio_valor||(((f.criterios||[]).join(" ").match(/criterios evaluables mediante un juicio de valor/i))?"Sí":""),(f.sobres||[]).map(function(s){return [s.nombre,s.tipo,s.descripcion].filter(Boolean).join(" · ")}).join(" | "),f.duracion,f.procedimiento,f.tramitacion,(f.cpv||[]).join(" | "),f.garantia,f.sara,f.financiacion,(f.criterios||[]).join(" | "),(f.condiciones||[]).join(" | "),f.estado_analisis].map(q).join(";")}));
+ var h=["Expediente","Título","Municipio de ejecución","Provincia","Órgano contratante","Fuente","Estado","Importe total estimado del expediente (€)","Plazo","Enlace","Lotes (n.º · nombre · importe)","Descripción del procedimiento","Clasificación empresarial","Documentación técnica por juicio de valor","Sobres y contenido","Duración","Procedimiento","Tramitación","CPV","Garantía definitiva","Regulación armonizada","Financiación","Criterios de adjudicación","Condiciones especiales","Estado del análisis"],q=function(v){return'"'+String(v==null?"":v).replace(/"/g,'""')+'"'};
+ var rows=[h.map(q).join(";")].concat(filt().map(function(d){var f=fichaDe(d)||{};return[d.id,d.t,d.mun,d.prov,d.org,d.src,estadoVisible(d),d.imp,fd(d.pl),d.u,(d.lotes||[]).map(function(l){return [l.id,l.t,l.imp].filter(function(v){return v!==undefined&&v!==null&&v!==""}).join(" · ")}).join(" | "),f.descripcion,f.clasificacion,f.documentacion_tecnica_juicio_valor||(((f.criterios||[]).join(" ").match(/criterios evaluables mediante un juicio de valor/i))?"Sí":""),(f.sobres||[]).map(function(s){return [s.nombre,s.tipo,s.descripcion].filter(Boolean).join(" · ")}).join(" | "),f.duracion,f.procedimiento,f.tramitacion,(f.cpv||[]).join(" | "),f.garantia,f.sara,f.financiacion,(f.criterios||[]).join(" | "),(f.condiciones||[]).join(" | "),f.estado_analisis].map(q).join(";")}));
  try{var tx2="\ufeff"+rows.join("\r\n");if(dl){await dl.save({filename:"obras-andalucia.csv",data:tx2})}else{var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([tx2],{type:"text/csv;charset=utf-8"}));a.download="obras-andalucia.csv";a.click()}}catch(e){}
 };
 
