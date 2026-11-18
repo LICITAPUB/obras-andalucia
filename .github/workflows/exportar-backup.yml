@@ -1,0 +1,27 @@
+name: Exportar copia ZIP previa a fusion
+on:
+  push:
+    branches:
+      - export/zip-main-pre-merge-2026-11-18
+permissions:
+  contents: read
+  actions: read
+jobs:
+  exportar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar la copia exacta de main antes de la fusion
+        uses: actions/checkout@v4
+        with:
+          ref: backup/main-pre-merge-2026-11-18
+          fetch-depth: 1
+      - name: Crear ZIP del repositorio
+        run: |
+          zip -qr /tmp/LICITAPUB-main-pre-merge-2026-11-18.zip . -x '.git/*'
+      - name: Guardar ZIP como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: LICITAPUB-main-pre-merge-2026-11-18
+          path: /tmp/LICITAPUB-main-pre-merge-2026-11-18.zip
+          if-no-files-found: error
+          retention-days: 30
