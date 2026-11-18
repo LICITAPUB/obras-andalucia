@@ -1,0 +1,52 @@
+name: Previsualización aislada de la rama
+
+on:
+  push:
+    branches:
+      - fase-1/telemetria-historico
+    paths:
+      - "index.html"
+      - "detalle.html"
+      - "carga.html"
+      - "data/**"
+      - ".github/workflows/preview-rama.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  preparar-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar código de la rama de revisión
+        uses: actions/checkout@v4
+        with:
+          ref: fase-1/telemetria-historico
+
+      - name: Preparar sitio estático sin ejecutar sincronizaciones
+        run: |
+          mkdir -p _preview/data
+          cp index.html detalle.html carga.html _preview/
+          cp -r data/. _preview/data/
+          cat > _preview/LEEME.txt <<'EOF'
+          PREVISUALIZACIÓN LOCAL DE LICITAPUB
+          
+          Esta copia procede de la rama fase-1/telemetria-historico.
+          No ejecuta descargas, no modifica checkpoints y no publica en GitHub Pages.
+          
+          Para verla:
+            1. Descomprime el ZIP.
+            2. Abre una terminal dentro de la carpeta descomprimida.
+            3. Ejecuta: python -m http.server 8000
+            4. Abre http://localhost:8000
+          EOF
+
+      - name: Publicar paquete descargable de revisión
+        uses: actions/upload-artifact@v4
+        with:
+          name: radar-preview-fase-1
+          path: _preview/
+          if-no-files-found: error
+          retention-days: 7

@@ -24,6 +24,7 @@ import unicodedata
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 
 DATA = Path(__file__).resolve().parent.parent / "data" / "obras.json"
@@ -97,21 +98,65 @@ def comp(kind, name, url, code=""):
                 [kind, name, -1, url])
     return item + [code] if code else item
 
+def normalize_city(city):
+    """Normaliza el texto del municipio igual que el parser del navegador."""
+    return re.sub(r"\s*\(.*\)\s*$", "", city or "").strip()
+
+
 def locate(record, city):
-    city = re.sub(r"\s*\(.*\)\s*$", "", city or "").strip()
+    city = normalize_city(city)
+    # No inferir el municipio a partir del órgano contratante o del título:
+    # solo se geolocaliza una población declarada en RealizedLocation.
     coords = TW.get(nm(city))
-    if not coords:
-        haystack = " " + nm(record["org"] + " " + record["t"] + " " + city) + " "
-        coords = next((TW[k] for k in TK if " " + k + " " in haystack), None)
     approximate = 0
     if not coords:
-        base = PC[record["prov"]]
-        digest = hashlib.md5((record["k"] + record["id"]).encode()).digest()
-        coords = (base[0] + (digest[0] / 255 - .5) * .3,
-                  base[1] + (digest[1] / 255 - .5) * .4)
+        coords = PC[record["prov"]]
         approximate = 1
     record["mun"] = record["prov"] if (not city or nm(city) in NO_AND) else city
     record["la"], record["lo"], record["ap"] = round(coords[0], 4), round(coords[1], 4), approximate
+
+
+def money(value):
+    """Convierte importes CODICE a euros con redondeo decimal HALF_UP."""
+    try:
+        raw = str(value or "0").strip().replace(",", ".")
+        if not re.fullmatch(r"[+-]?(?:\d+\.?\d*|\.\d+)", raw):
+            return 0.0
+        amount = Decimal(raw)
+        return float(amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+    except (InvalidOperation, ValueError, TypeError):
+        return 0.0
+
+
+def parse_lots(contract):
+    """Conserva todos los lotes del expediente; el umbral no se aplica por lote."""
+    lots = []
+    for lot in contract.findall("{*}ProcurementProjectLot"):
+        lot_project = lot.find("{*}ProcurementProject")
+        if lot_project is None:
+            continue
+        budget = lot_project.find("{*}BudgetAmount")
+        amount = (
+            money(budget.findtext("{*}TaxExclusiveAmount") or budget.findtext("{*}TotalAmount"))
+            if budget is not None else 0.0
+        )
+        realized = lot_project.find("{*}RealizedLocation")
+        nuts = (realized.findtext("{*}CountrySubentityCode") or "").strip() if realized is not None else ""
+        subentity = (realized.findtext("{*}CountrySubentity") or "").strip() if realized is not None else ""
+        province = NUTS.get(nuts[:5]) if nuts.startswith("ES61") else PN.get(nm(subentity))
+        city = (realized.findtext(".//{*}CityName") or "").strip() if realized is not None else ""
+        lots.append({
+            "id": (lot.findtext("{*}ID") or "").strip(),
+            "t": (lot_project.findtext("{*}Name") or "").strip(),
+            "imp": amount, "mun": city or province or "", "prov": province or "",
+        })
+    return lots
+
+
+def entry_key(entry_id):
+    """Extrae la última parte de la URI; una URI vacía no tiene clave."""
+    return re.sub(r"^.*/", "", (entry_id or "").strip())
+
 
 def parse_entry(entry):
     contract = entry.find("{*}ContractFolderStatus")
@@ -121,26 +166,50 @@ def parse_entry(entry):
     cpvs = [node.text.strip() for node in project.iterfind(".//{*}ItemClassificationCode") if node.text]
     if not ((project.findtext("{*}TypeCode") or "").strip() == "3" or any(code.startswith("45") for code in cpvs)):
         return None
-    nuts = (project.findtext("{*}RealizedLocation/{*}CountrySubentityCode") or "").strip()
-    subentity = project.findtext("{*}RealizedLocation/{*}CountrySubentity") or ""
+
+    # Ubicación elegida: lugar real de ejecución (CODICE RealizedLocation),
+    # nunca el municipio del órgano de contratación.
+    realized = project.find("{*}RealizedLocation")
+    nuts = (realized.findtext("{*}CountrySubentityCode") or "").strip() if realized is not None else ""
+    subentity = (realized.findtext("{*}CountrySubentity") or "").strip() if realized is not None else ""
+    city = (realized.findtext(".//{*}CityName") or "").strip() if realized is not None else ""
     province = NUTS.get(nuts[:5]) if nuts.startswith("ES61") else PN.get(nm(subentity))
+    lots = parse_lots(contract)
     if not province:
-        return None
-    key = re.sub(r"^.*/", "", (entry.findtext("{*}id") or "").strip())
+        lot_provinces = {lot["prov"] for lot in lots if lot.get("prov")}
+        if len(lot_provinces) == 1:
+            province = next(iter(lot_provinces))
+        else:
+            return None
+    if not city:
+        lot_cities = {
+            lot["mun"] for lot in lots
+            if lot.get("prov") == province and lot.get("mun") and lot["mun"] != province
+        }
+        if len(lot_cities) == 1:
+            city = next(iter(lot_cities))
+
+    key = entry_key(entry.findtext("{*}id"))
     contract_id = (contract.findtext("{*}ContractFolderID") or "").strip()
     if not key or not contract_id:
         return None
     party = contract.find("{*}LocatedContractingParty")
     org = (party.findtext(".//{*}PartyName/{*}Name") or "").strip() if party is not None else ""
-    city = (party.findtext(".//{*}CityName") or "").strip() if party is not None else ""
+
     budget = project.find("{*}BudgetAmount")
-    try:
-        amount = round(float((budget.findtext("{*}TaxExclusiveAmount") or
-                              budget.findtext("{*}EstimatedOverallContractAmount") or "0").strip()))
-    except Exception:
-        amount = 0
+    # Criterio económico: valor estimado TOTAL del expediente (> 1 M€).
+    # Si no existe, sumar los importes de todos los lotes; no descartar lotes
+    # individualmente por quedar por debajo del umbral.
+    amount = money(budget.findtext("{*}EstimatedOverallContractAmount")) if budget is not None else 0.0
+    if amount <= 0 and lots and all(lot["imp"] > 0 for lot in lots):
+        amount = float(sum((Decimal(str(lot["imp"])) for lot in lots), Decimal("0")).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        ))
+    if amount <= 0 and budget is not None:
+        amount = money(budget.findtext("{*}TaxExclusiveAmount") or budget.findtext("{*}TotalAmount"))
     if amount <= IMPORTE_MINIMO:
         return None
+
     org_norm = nm(org)
     source = ("Ayuntamiento" if "ayuntamiento" in org_norm else
               "Junta de Andalucía" if ("junta de andalucia" in org_norm or "consejeria" in org_norm
@@ -159,12 +228,24 @@ def parse_entry(entry):
             else:
                 documents.append(comp(tag, (node.findtext("{*}ID") or "").strip(), url))
     updated = (entry.findtext("{*}updated") or "").strip()
+    # TypeCode=3 confirma obra; CPV 45 con otro tipo queda como candidato.
+    type_code = (project.findtext("{*}TypeCode") or "").strip()
+    is_cpv_work = any(code.startswith("45") for code in cpvs)
+    classification = "obra_confirmada" if type_code == "3" else "candidato_cpv"
+    classification_reason = (
+        "TypeCode=3" if type_code == "3" and is_cpv_work else
+        "TypeCode=3; sin CPV de obras" if type_code == "3" else
+        "CPV de obras; tipo de contrato distinto o no informado"
+    )
     record = {
         "k": key, "id": contract_id, "t": (project.findtext("{*}Name") or "").strip(),
         "prov": province, "org": org, "src": source,
+        "tipo_contrato_codigo": type_code, "cpv": cpvs, "cpv_obra": is_cpv_work,
+        "clasificacion_radar": classification, "motivo_clasificacion": classification_reason,
         "est": ESTADOS.get((contract.findtext("{*}ContractFolderStatusCode") or "").strip(), "Desconocido"),
-        "imp": amount,
-        "pl": (contract.findtext("{*}TenderingProcess/{*}TenderSubmissionDeadlinePeriod/{*}EndDate") or "").strip(),
+        "imp": amount, "lotes": lots,
+        "criteria_version": 2, "location_source": "execution",
+        "pl": deadline_value(contract),
         "u": link, "dc": documents, "up": updated,
     }
     if len(record["t"]) > 240:
@@ -172,8 +253,54 @@ def parse_entry(entry):
     locate(record, city)
     return record
 
+def deadline_value(contract):
+    """Devuelve fecha límite y hora cuando PLACSP publica ambos campos."""
+    period = contract.find("{*}TenderingProcess/{*}TenderSubmissionDeadlinePeriod")
+    if period is None:
+        return ""
+    date = (period.findtext("{*}EndDate") or "").strip()
+    time = (period.findtext("{*}EndTime") or "").strip()
+    return f"{date}T{time}" if date and time else date
+
+
+def timestamp_after(candidate, baseline):
+    """Compara timestamps ISO respetando sus offsets horarios."""
+    try:
+        left = datetime.fromisoformat(candidate.replace("Z", "+00:00"))
+        right = datetime.fromisoformat(baseline.replace("Z", "+00:00"))
+        if left.tzinfo is None:
+            left = left.replace(tzinfo=timezone.utc)
+        if right.tzinfo is None:
+            right = right.replace(tzinfo=timezone.utc)
+        return left > right
+    except (TypeError, ValueError):
+        return candidate > baseline
+
+
+def apply_deleted_entry(deleted, acc):
+    """Conserva el expediente y aplica su retirada solo si es posterior a su última entrada."""
+    key = entry_key(deleted.get("ref", ""))
+    when = (deleted.get("when") or "").strip()
+    record = acc.get(key)
+    if not key or not when or record is None:
+        return False
+    if not timestamp_after(when, record.get("up") or ""):
+        return False
+    comment = deleted.find("{*}comment")
+    reason = (comment.get("type", "") if comment is not None else "").strip().upper()
+    label = {"ANULADA": "Anulada", "CERRADA": "Cerrada"}.get(reason, "Retirada del feed")
+    current = record.get("tombstone") or {}
+    if current.get("when") and not timestamp_after(when, current["when"]):
+        return False
+    record.setdefault("estado_publicado", record.get("est", "Desconocido"))
+    record["est"] = label
+    record["tombstone"] = {"when": when, "tipo": reason or "SIN_CLASIFICAR"}
+    return True
+
+
 def collect(root, acc):
     accepted = 0
+    unique_added = 0
     for entry in root.findall("{*}entry"):
         record = parse_entry(entry)
         # PLACSP documenta que <updated> es la fecha del último anuncio y
@@ -182,11 +309,25 @@ def collect(root, acc):
             continue
         accepted += 1
         previous = acc.get(record["k"])
+        if previous is None:
+            unique_added += 1
         if previous is None or record["up"] >= previous.get("up", ""):
             if previous and previous.get("ficha") and record["up"] == previous.get("up", ""):
                 record["ficha"] = previous["ficha"]
+            # Una entrada posterior al tombstone lo deja sin efecto; si el
+            # tombstone es posterior, se conserva como estado histórico vigente.
+            tombstone = previous.get("tombstone") if previous else None
+            if tombstone and timestamp_after(tombstone.get("when", ""), record["up"]):
+                record["estado_publicado"] = record.get("est", "Desconocido")
+                record["tombstone"] = tombstone
+                reason = tombstone.get("tipo", "")
+                record["est"] = {"ANULADA": "Anulada", "CERRADA": "Cerrada"}.get(
+                    reason, "Retirada del feed"
+                )
             acc[record["k"]] = record
-    return accepted
+    for deleted in root.findall("{*}deleted-entry"):
+        apply_deleted_entry(deleted, acc)
+    return accepted, unique_added
 
 def atomic_json(path, obj):
     path = Path(path)
@@ -251,6 +392,21 @@ def main():
             name, {"next_url": None, "done": False, "latest_updated": ""}
         )
 
+    # Telemetría acumulada: compatible con checkpoints antiguos y sin mover cursores.
+    telemetry = state.setdefault("telemetry", {})
+    # El checkpoint anterior a la instrumentación no contiene métricas históricas.
+    # No se reconstruyen ni se reinician cursores: los contadores empiezan aquí.
+    telemetry.setdefault("scope", "desde_instrumentacion")
+    telemetry.setdefault("started_at", now.isoformat())
+    for name in FEEDS:
+        stats = telemetry.setdefault(name, {})
+        stats.setdefault("pages_processed", 0)
+        stats.setdefault("entries_seen", 0)
+        stats.setdefault("entries_matching_filters", 0)
+        stats.setdefault("unique_records_added", 0)
+        stats.setdefault("oldest_updated", "")
+        stats.setdefault("newest_updated", "")
+
     # Marca de agua incremental: conserva la fecha más reciente alcanzada
     # durante la reconstrucción histórica completa.
     if mode == "incremental" and "cycle_since" not in state:
@@ -268,10 +424,18 @@ def main():
             if key not in ("D", "info", "updated", "feed_until", "initial_window_done")
         }
         meta.update({
-            "info": f"{len(records)} licitaciones de obra en Andalucía · PLACSP · importe superior a 1.000.000 € · desde {FECHA_MINIMA}",
+            "info": f"{len(records)} licitaciones de obra en Andalucía · PLACSP · criterio total/ejecución aplicado a nuevos registros · desde {FECHA_MINIMA}",
             "updated": now.strftime("%d/%m/%Y"),
             "feed_until": max((state["feeds"][name].get("latest_updated", "") for name in FEEDS), default=""),
             "initial_window_done": complete or mode == "incremental",
+            "placsp_progress": {
+                "mode": mode,
+                "history_cutoff": FECHA_MINIMA,
+                "complete": bool(complete or mode == "incremental"),
+                "telemetry_scope": telemetry.get("scope"),
+                "telemetry_started_at": telemetry.get("started_at"),
+                "feeds": {name: telemetry[name] for name in FEEDS},
+            },
             "px": PX,
             "D": records,
         })
@@ -290,13 +454,30 @@ def main():
             print(f"{mode} / {name}: descargando página, quedan {budget} en este lote", flush=True)
             try:
                 root = ET.fromstring(fetch(url))
-                accepted = collect(root, acc)
+                accepted, unique_added = collect(root, acc)
             except Exception as exc:
                 failure = f"{name}: {exc}"
                 print("ERROR recuperable:", failure, file=sys.stderr, flush=True)
                 break
 
             updated = page_updated(root)
+            page_dates = [
+                (entry.findtext("{*}updated") or "").strip()
+                for entry in root.findall("{*}entry")
+            ]
+            page_dates = [value for value in page_dates if value]
+            stats = telemetry[name]
+            stats["pages_processed"] += 1
+            stats["entries_seen"] += len(root.findall("{*}entry"))
+            stats["entries_matching_filters"] += accepted
+            stats["unique_records_added"] += unique_added
+            if page_dates:
+                page_oldest = min(page_dates)
+                page_newest = max(page_dates)
+                if not stats["oldest_updated"] or page_oldest < stats["oldest_updated"]:
+                    stats["oldest_updated"] = page_oldest
+                if page_newest > stats["newest_updated"]:
+                    stats["newest_updated"] = page_newest
             feed_state["latest_updated"] = max(feed_state.get("latest_updated", ""), updated)
             next_url = page_next(root)
 
@@ -312,7 +493,12 @@ def main():
             budget -= 1
             save()
 
-            print(f"  entradas válidas incorporadas: {accepted}", flush=True)
+            print(
+                f"  entradas vistas: {stats['entries_seen']} · "
+                f"coincidencias: {stats['entries_matching_filters']} · "
+                f"registros únicos nuevos: {stats['unique_records_added']}",
+                flush=True,
+            )
             if feed_state["done"]:
                 print(f"{name}: feed terminado", flush=True)
                 break

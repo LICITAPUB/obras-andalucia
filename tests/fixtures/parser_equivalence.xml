@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"
+ xmlns:cac="urn:dgpe:names:draft:codice:schema:xsd:CommonAggregateComponents-2"
+ xmlns:cbc="urn:dgpe:names:draft:codice:schema:xsd:CommonBasicComponents-2"
+ xmlns:ext="urn:dgpe:names:draft:codice-place-ext:schema:xsd:CommonAggregateComponents-2">
+ <entry>
+  <id>https://contrataciondelestado.es/KEY-E2E-1</id><updated>2026-11-17T10:00:00Z</updated>
+  <link href="https://example.test/expediente/1"/>
+  <ext:ContractFolderStatus>
+   <cbc:ContractFolderID>EXP-E2E-1</cbc:ContractFolderID><cbc:ContractFolderStatusCode>PUB</cbc:ContractFolderStatusCode>
+   <cac:ProcurementProject>
+    <cbc:Name>Obras de rehabilitación integral</cbc:Name><cbc:TypeCode>3</cbc:TypeCode>
+    <cac:BudgetAmount><cbc:EstimatedOverallContractAmount>1250000.755</cbc:EstimatedOverallContractAmount><cbc:TaxExclusiveAmount>900000.25</cbc:TaxExclusiveAmount><cbc:TotalAmount>1089000.30</cbc:TotalAmount></cac:BudgetAmount>
+    <cac:RealizedLocation><cbc:CountrySubentity>Málaga</cbc:CountrySubentity><cbc:CountrySubentityCode>ES617</cbc:CountrySubentityCode><cac:Address><cbc:CityName>Fuengirola (Málaga)</cbc:CityName></cac:Address></cac:RealizedLocation>
+   </cac:ProcurementProject>
+   <cac:LocatedContractingParty><cac:Party><cac:PartyName><cbc:Name>Ayuntamiento de Madrid</cbc:Name></cac:PartyName></cac:Party></cac:LocatedContractingParty>
+   <cac:ProcurementProjectLot><cbc:ID>1</cbc:ID><cac:ProcurementProject><cbc:Name>Lote de obra civil</cbc:Name><cac:BudgetAmount><cbc:TaxExclusiveAmount>400000.25</cbc:TaxExclusiveAmount></cac:BudgetAmount><cac:RealizedLocation><cbc:CountrySubentity>Málaga</cbc:CountrySubentity><cbc:CountrySubentityCode>ES617</cbc:CountrySubentityCode><cac:Address><cbc:CityName>Fuengirola</cbc:CityName></cac:Address></cac:RealizedLocation></cac:ProcurementProject></cac:ProcurementProjectLot>
+   <cac:ProcurementProjectLot><cbc:ID>2</cbc:ID><cac:ProcurementProject><cbc:Name>Lote de instalaciones</cbc:Name><cac:BudgetAmount><cbc:TaxExclusiveAmount>500000.50</cbc:TaxExclusiveAmount></cac:BudgetAmount><cac:RealizedLocation><cbc:CountrySubentity>Málaga</cbc:CountrySubentity><cbc:CountrySubentityCode>ES617</cbc:CountrySubentityCode><cac:Address><cbc:CityName>Marbella</cbc:CityName></cac:Address></cac:RealizedLocation></cac:ProcurementProject></cac:ProcurementProjectLot>
+   <cac:LegalDocumentReference><cbc:ID>PCAP</cbc:ID><cac:Attachment><cac:ExternalReference><cbc:URI>https://contrataciondelestado.es/FileSystem/servlet/GetDocumentByIdServlet?doc=ABC</cbc:URI></cac:ExternalReference></cac:Attachment></cac:LegalDocumentReference>
+   <cac:TechnicalDocumentReference><cbc:ID>PPT</cbc:ID><cac:Attachment><cac:ExternalReference><cbc:URI>https://example.test/technical.pdf</cbc:URI></cac:ExternalReference></cac:Attachment></cac:TechnicalDocumentReference>
+   <cac:AdditionalDocumentReference><cbc:ID>PCAP</cbc:ID><cac:Attachment><cac:ExternalReference><cbc:URI>https://contrataciondelestado.es/FileSystem/servlet/GetDocumentByIdServlet?doc=ABC</cbc:URI></cac:ExternalReference></cac:Attachment></cac:AdditionalDocumentReference>
+  </ext:ContractFolderStatus>
+ </entry>
+ <entry>
+  <id>https://contrataciondelestado.es/KEY-E2E-2</id><updated>2026-11-16T10:00:00Z</updated>
+  <link href="https://example.test/expediente/2"/>
+  <ext:ContractFolderStatus>
+   <cbc:ContractFolderID>EXP-E2E-2</cbc:ContractFolderID><cbc:ContractFolderStatusCode>ADJ</cbc:ContractFolderStatusCode>
+   <cac:ProcurementProject>
+    <cbc:Name>Proyecto de urbanización en Fuengirola</cbc:Name><cbc:TypeCode>3</cbc:TypeCode>
+    <cac:BudgetAmount><cbc:EstimatedOverallContractAmount>0</cbc:EstimatedOverallContractAmount><cbc:TaxExclusiveAmount>900000</cbc:TaxExclusiveAmount><cbc:TotalAmount>1089000</cbc:TotalAmount></cac:BudgetAmount>
+    <cac:RealizedLocation><cbc:CountrySubentity>Málaga</cbc:CountrySubentity><cbc:CountrySubentityCode>ES617</cbc:CountrySubentityCode></cac:RealizedLocation>
+   </cac:ProcurementProject>
+   <cac:LocatedContractingParty><cac:Party><cac:PartyName><cbc:Name>Consejería de Fomento de la Junta de Andalucía</cbc:Name></cac:PartyName></cac:Party></cac:LocatedContractingParty>
+   <cac:ProcurementProjectLot><cbc:ID>1</cbc:ID><cac:ProcurementProject><cbc:Name>Urbanización</cbc:Name><cac:BudgetAmount><cbc:TaxExclusiveAmount>600000.25</cbc:TaxExclusiveAmount></cac:BudgetAmount><cac:RealizedLocation><cbc:CountrySubentity>Málaga</cbc:CountrySubentity><cbc:CountrySubentityCode>ES617</cbc:CountrySubentityCode><cac:Address><cbc:CityName>Fuengirola</cbc:CityName></cac:Address></cac:RealizedLocation></cac:ProcurementProject></cac:ProcurementProjectLot>
+   <cac:ProcurementProjectLot><cbc:ID>2</cbc:ID><cac:ProcurementProject><cbc:Name>Alumbrado</cbc:Name><cac:BudgetAmount><cbc:TaxExclusiveAmount>500000.50</cbc:TaxExclusiveAmount></cac:BudgetAmount><cac:RealizedLocation><cbc:CountrySubentity>Málaga</cbc:CountrySubentity><cbc:CountrySubentityCode>ES617</cbc:CountrySubentityCode><cac:Address><cbc:CityName>Fuengirola</cbc:CityName></cac:Address></cac:RealizedLocation></cac:ProcurementProject></cac:ProcurementProjectLot>
+  </ext:ContractFolderStatus>
+ </entry>
+ <entry>
+  <id>https://contrataciondelestado.es/KEY-E2E-3</id><updated>2026-11-15T10:00:00Z</updated>
+  <link href="https://example.test/expediente/3"/>
+  <ext:ContractFolderStatus>
+   <cbc:ContractFolderID>EXP-E2E-3</cbc:ContractFolderID><cbc:ContractFolderStatusCode>EV</cbc:ContractFolderStatusCode>
+   <cac:ProcurementProject><cbc:Name>Proyecto de rehabilitación y mejora de infraestructuras municipales Proyecto de rehabilitación y mejora de infraestructuras municipales Proyecto de rehabilitación y mejora de infraestructuras municipales Proyecto de rehabilitación y mejora de infraestructuras municipales Proyecto de rehabilitación y mejora de infraestructuras municipales</cbc:Name><cbc:TypeCode>3</cbc:TypeCode>
+    <cac:BudgetAmount><cbc:EstimatedOverallContractAmount>1500000</cbc:EstimatedOverallContractAmount></cac:BudgetAmount>
+    <cac:RealizedLocation><cbc:CountrySubentity>Málaga</cbc:CountrySubentity><cbc:CountrySubentityCode>ES617</cbc:CountrySubentityCode><cac:Address><cbc:CityName>Madrid</cbc:CityName></cac:Address></cac:RealizedLocation>
+   </cac:ProcurementProject>
+  </ext:ContractFolderStatus>
+ </entry>
+</feed>
