@@ -294,7 +294,7 @@ function render(){
  $("cnt").textContent=L.length>100?"Mostrando las 100 de mayor importe de "+L.length.toLocaleString("es-ES"):L.length+" licitaciones encontradas";
  L.slice(0,100).forEach(function(d){
   var e=document.createElement("article");e.className="it"+(sel===d.k?" on":"");e.setAttribute("data-id",d.k);
-  e.innerHTML='<h3></h3><div class="m"><span class="tg e"></span><span class="tg s"></span><span class="tg c"></span><span class="a"></span></div><div class="m" style="margin-top:5px"><span class="imp"></span> · <span class="p"></span> <a target="_blank" rel="noopener" class="u">Ver licitación ↗</a></div><div class="lotes-slot"></div><div class="ficha-slot"></div><div class="dc"></div>';
+  e.innerHTML='<h3></h3><div class="m"><span class="tg e"></span><span class="tg s"></span><span class="tg c"></span><span class="a"></span></div><div class="m" style="margin-top:5px"><a target="_blank" rel="noopener" class="u">Ver licitación oficial ↗</a></div><div class="lotes-slot"></div><div class="ficha-slot"></div><div class="dc"></div>';
   e.querySelector("h3").textContent=d.t;var te=e.querySelector(".tg.e");var est=estadoVisible(d);te.textContent=est;te.style.background=ESTC[est]||"#7d7d77";var ts=e.querySelector(".tg.s");ts.textContent=d.src;ts.style.background="var(--charcoal)";var tc=e.querySelector(".tg.c");tc.textContent=d.clasificacion_radar==="candidato_cpv"?"Candidato CPV":d.clasificacion_radar==="obra_confirmada"?"Obra confirmada":"Sin clasificar";tc.style.background=d.clasificacion_radar==="candidato_cpv"?"#b7791f":d.clasificacion_radar==="obra_confirmada"?"#34865c":"#77796f";tc.title=d.motivo_clasificacion||"Registro anterior pendiente de clasificación";
   var meta=e.querySelector(".ficha-slot"),fecha=fd(d.pl);
   if(d.pl){var hora=String(d.pl).match(/[T\s](\d{2}:\d{2})(?::\d{2})?/);if(hora)fecha+=" · "+hora[1]}
@@ -302,7 +302,6 @@ function render(){
   var grid=node("div","card-meta");
   datos.forEach(function(a){var c=node("div","meta-cell"),label=node("label","",a[0]),value=node("strong","",a[1]);c.appendChild(label);c.appendChild(value);grid.appendChild(c)});
   meta.replaceWith(grid);
-  e.querySelector(".imp").textContent="Importe: "+Number(d.imp||0).toLocaleString("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";e.querySelector(".p").textContent="Fecha límite: "+fecha;
   var u=e.querySelector(".u");if(d.u){u.href=d.u;u.onclick=function(ev){ev.stopPropagation()}}else u.remove();
   buildLots(e.querySelector(".lotes-slot"),d);docs(e.querySelector(".dc"),d);
   e.onclick=function(ev){if(ev.target.closest("a,button,details,summary,input,select,label"))return;window.location.href="detalle.html?id="+encodeURIComponent(d.id||d.k)};l.appendChild(e)});
