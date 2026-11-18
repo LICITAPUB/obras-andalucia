@@ -245,13 +245,23 @@ def parse_entry(entry):
         "est": ESTADOS.get((contract.findtext("{*}ContractFolderStatusCode") or "").strip(), "Desconocido"),
         "imp": amount, "lotes": lots,
         "criteria_version": 2, "location_source": "execution",
-        "pl": (contract.findtext("{*}TenderingProcess/{*}TenderSubmissionDeadlinePeriod/{*}EndDate") or "").strip(),
+        "pl": deadline_value(contract),
         "u": link, "dc": documents, "up": updated,
     }
     if len(record["t"]) > 240:
         record["t"] = record["t"][:237] + "…"
     locate(record, city)
     return record
+
+def deadline_value(contract):
+    """Devuelve fecha límite y hora cuando PLACSP publica ambos campos."""
+    period = contract.find("{*}TenderingProcess/{*}TenderSubmissionDeadlinePeriod")
+    if period is None:
+        return ""
+    date = (period.findtext("{*}EndDate") or "").strip()
+    time = (period.findtext("{*}EndTime") or "").strip()
+    return f"{date}T{time}" if date and time else date
+
 
 def timestamp_after(candidate, baseline):
     """Compara timestamps ISO respetando sus offsets horarios."""
