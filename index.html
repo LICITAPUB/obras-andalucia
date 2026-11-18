@@ -199,7 +199,7 @@ function parse(xml,acc){
   var record={k:kk,id:id,t:txDirect(pp,"Name"),mun:city||pr,prov:pr,org:org,src:srcOf(org),
    tipo_contrato_codigo:typeCode,cpv:cp,cpv_obra:cpvWork,clasificacion_radar:classification,motivo_clasificacion:classificationReason,
    est:ES[txDirect(c,"ContractFolderStatusCode")]||"Desconocido",imp:imp,lotes:lotes,criteria_version:2,location_source:"execution",
-   pl:tx(deadline,"EndDate"),u:lk.length?lk[0].getAttribute("href"):"",up:up,dc:dcs(c)};
+   pl:(tx(deadline,"EndDate")&&tx(deadline,"EndTime")?tx(deadline,"EndDate")+"T"+tx(deadline,"EndTime"):tx(deadline,"EndDate")),u:lk.length?lk[0].getAttribute("href"):"",up:up,dc:dcs(c)};
   if(record.t.length>240)record.t=record.t.slice(0,237)+"…";
   loc(record,city);
   var previous=acc[kk],oldTomb=previous&&previous.tombstone;
@@ -297,7 +297,7 @@ function render(){
   e.innerHTML='<h3></h3><div class="m"><span class="tg e"></span><span class="tg s"></span><span class="tg c"></span><span class="a"></span></div><div class="m" style="margin-top:5px"><span class="imp"></span> · <span class="p"></span> <a target="_blank" rel="noopener" class="u">Ver licitación ↗</a></div><div class="lotes-slot"></div><div class="ficha-slot"></div><div class="dc"></div>';
   e.querySelector("h3").textContent=d.t;var te=e.querySelector(".tg.e");var est=estadoVisible(d);te.textContent=est;te.style.background=ESTC[est]||"#7d7d77";var ts=e.querySelector(".tg.s");ts.textContent=d.src;ts.style.background="var(--charcoal)";var tc=e.querySelector(".tg.c");tc.textContent=d.clasificacion_radar==="candidato_cpv"?"Candidato CPV":d.clasificacion_radar==="obra_confirmada"?"Obra confirmada":"Sin clasificar";tc.style.background=d.clasificacion_radar==="candidato_cpv"?"#b7791f":d.clasificacion_radar==="obra_confirmada"?"#34865c":"#77796f";tc.title=d.motivo_clasificacion||"Registro anterior pendiente de clasificación";
   var meta=e.querySelector(".ficha-slot"),fecha=fd(d.pl);
-  if(d.pl){var hora=String(d.pl).match(/[T\\s](\\d{2}:\\d{2})(?::\\d{2})?/);if(hora)fecha+=" · "+hora[1]}
+  if(d.pl){var hora=String(d.pl).match(/[T\s](\d{2}:\d{2})(?::\d{2})?/);if(hora)fecha+=" · "+hora[1]}
   var datos=[["Expediente",d.id||"No consta"],["Órgano de contratación",d.org||"No consta"],["Ubicación registrada / provincia",(d.mun||"")+(d.prov?" · "+d.prov:"")||"No consta"],["Importe registrado (criterio anterior)",Number(d.imp||0).toLocaleString("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2})+" €"],["Fecha límite de presentación",fecha],["Identificador",d.k||"No consta"]];
   var grid=node("div","card-meta");
   datos.forEach(function(a){var c=node("div","meta-cell"),label=node("label","",a[0]),value=node("strong","",a[1]);c.appendChild(label);c.appendChild(value);grid.appendChild(c)});
